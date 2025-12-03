@@ -1,0 +1,53 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  12
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      functions;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+viscosityField
+{
+    type	probes;
+    libs	("libsampling.so");
+    writeControl	writeTime;
+    surfaceFormat	raw;
+    interpolationScheme cellPoint;
+    fields	(mu kappa);
+    interpolate true;
+    //point	?;
+    probeLocations	((0 0 0));
+    /*surfaces
+    (
+        cutPlane_GUPTAYOS
+        {
+            type	cutPlane;
+            interpolate	$interpolate;
+            planeType	pointAndNormal;
+            point	(0 0 0);
+            normal	(0 0 1);
+        }
+    );*/
+}
+species
+{
+    type	probes;
+    libs	("libsampling.so");
+    writeControl	writeTime;
+    surfaceFormat	raw;
+    interpolationScheme cellPoint;
+    fields	(N2 O2 N O NO NO+ e- N+ O+ N2+ O2+);
+    interpolate true;
+    probeLocations	((0 0 0));
+}
+
+// ************************************************************************* //

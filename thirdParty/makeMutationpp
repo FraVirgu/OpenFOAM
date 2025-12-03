@@ -1,0 +1,65 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2011-2016 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Script
+#     makeLLVM
+#
+# Description
+#     Build script for llvm/clang etc.
+#
+# Author:
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology (DAER)
+#     Politecnico di Milano
+#     
+#------------------------------------------------------------------------------
+
+nProcs=2;
+
+[ -d $MPP_DIRECTORY ] && echo "✅ MutationPP already installed" && exit 0
+
+#- mutation++
+if [ ! -d "MPP_DIRECTORY" ];
+then
+    echo "Mutationpp folder is missing. Please clone the git repo:"
+    echo "git clone https://github.com/mutationpp/Mutationpp Mutationpp";
+
+    # if not, clone it before compiling
+    git clone https://github.com/mutationpp/Mutationpp Mutationpp
+fi
+
+#- compile mutation
+mkdir -p $MPP_DIRECTORY/build
+cd $MPP_DIRECTORY/build
+
+cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTING=ON \
+      -DCMAKE_INSTALL_PREFIX:PATH=$(realpath ../install) ..
+
+make -j $nProcs install
+
+#- install Eigen
+mkdir -p $MPP_EIGEN/build
+mkdir -p $MPP_EIGEN/install
+cd $MPP_EIGEN/build
+cmake .. -DCMAKE_INSTALL_PREFIX=$MPP_EIGEN/install && make install

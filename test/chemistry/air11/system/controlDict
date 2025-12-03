@@ -1,0 +1,57 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  12
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     chemFoam;
+
+startFrom       startTime;
+
+startTime       0;
+
+stopAt          endTime;
+
+endTime         0.001;
+
+deltaT          1e-05;
+
+maxDeltaT       1;
+
+adjustTimeStep  on;
+
+writeControl    adjustableRunTime;
+//writeControl	timeStep;
+//writeInterval	1;
+
+writeInterval   1e-04;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+
+writeCompression off;
+
+timeFormat      general;
+
+timePrecision   6;
+
+runTimeModifiable yes;
+
+libs ("/academia/TESI/templateTesista/OpenFOAM/test/chemistry/air11/dynamicCode/platforms/linux64GccDPInt32Opt/lib/libode_Park2T_guptaYos_janaf_perfectGas_specie___sensibleEnthalpy____3b52744371583f756d48d24ed39f687aa9a77ef3.so" "libguptaDAER.so" "libfede.so" "/academia/TESI/templateTesista/OpenFOAM/test/chemistry/air11/dynamicCode/platforms/linux64GccDPInt32Opt/lib/libode_Park2T_guptaYos_janaf_perfectGas_specie___sensibleEnthalpy____3b52744371583f756d48d24ed39f687aa9a77ef3.so");
+DebugSwitches
+{
+    SolverPerformance   0;
+}
+
+// ************************************************************************* //

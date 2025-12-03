@@ -1,0 +1,51 @@
+#!/bin/bash
+#---------------------------------*- sh -*-------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2013 F. Piscaglia
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors: Federico Piscaglia
+#          Dept. of Aerospace Science and Technology (DAER)
+#          Politecnico di Milano
+#
+#------------------------------------------------------------------------------
+
+alias poli='cd $POLIMI_PROJECT_DIR'
+alias polibin='cd $POLIMI_BIN'
+alias polietc='cd $POLIMI_ETC'
+alias polisrc='cd $POLIMI_SRC'
+alias poliapp='cd $POLIMI_APP'
+alias poliutil='cd $POLIMI_UTILITIES'
+alias polisol='cd $POLIMI_SOLVERS'
+alias polimod='cd $POLIMI_MODULES'
+alias politut='cd $POLIMI_TUTORIALS'
+alias politest='cd $POLIMI_APP/test'
+
+alias poli3rdParty='cd $POLIMI_THIRD_PARTY_DIR'
+alias polidoc='$BROWSER $POLIMI_PROJECT_DIR/doc//Doxygen/html/index.html &'
+alias foamdoc='$BROWSER $WM_PROJECT_DIR/doc/Doxygen/html/index.html &'
+
+alias foam3rdParty='cd $WM_THIRD_PARTY_DIR'
+alias poli3rdParty='cd $POLIMI_THIRD_PARTY_DIR'
+
+##alias lt='foamListTimes | tail -n1'
+
+# ------------------------------------------------------------------------------

@@ -1,0 +1,117 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    object      fluidMulticomponentThermo;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+type
+(
+    hePsiThermo
+    heRhoThermo
+    highEnthalpyThermo
+);
+
+typeRenamed
+(
+    hePsiThermo psiMulticomponentThermo
+    heRhoThermo rhoFluidMulticomponentThermo
+    highEnthalpyThermo highEnthalpyMulticomponentThermo
+);
+
+energy
+(
+    sensibleEnthalpy
+    absoluteEnthalpy
+    sensibleInternalEnergy
+    absoluteInternalEnergy
+);
+
+mixture
+(
+    pureMixture
+    multicomponentMixture
+    valueMulticomponentMixture 
+    coefficientWilkeMulticomponentMixture
+    coefficientGuptaMulticomponentMixture
+);
+
+mixtureRenamed
+(
+    pureMixture singleComponentMixture
+    multicomponentMixture coefficientMulticomponentMixture
+);
+
+transport
+(
+    const
+    icoTabulated
+    logPolynomial
+    polynomial
+    sutherland
+    tabulated
+    WLF
+    Andrade
+    Gupta
+);
+
+thermo
+(
+    eConst
+    eIcoTabulated
+    ePolynomial
+    ePower
+    eTabulated
+    hConst
+    hIcoTabulated
+    hPolynomial
+    hPower
+    hTabulated
+    janaf
+    rrho
+);
+
+equationOfState
+(
+    adiabaticPerfectFluid
+    Boussinesq
+    icoPolynomial
+    icoTabulated
+    incompressiblePerfectGas
+    linear
+    PengRobinsonGas
+    perfectFluid
+    perfectGas
+    rhoConst
+    rhoTabulated
+    rPolynomial
+);
+
+specie
+(
+    specie
+);
+
+codeOptions
+#{
+EXE_INC = \
+    -I$(POLIMI_SRC)/thermophysicalModels/multicomponentThermo/lnInclude \
+    -I$(POLIMI_SRC)/thermophysicalModels/specie/lnInclude \
+    -I$(POLIMI_SRC)/thermophysicalModels/basic/lnInclude \
+    -I$(LIB_SRC)/physicalProperties/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/multicomponentThermo/lnInclude \
+    -I$(LIB_SRC)/finiteVolume/lnInclude
+#};
+
+
+// ************************************************************************* //

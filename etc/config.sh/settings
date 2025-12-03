@@ -1,0 +1,69 @@
+#----------------------------------*-sh-*--------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2011-2013 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File
+#     etc/config/settings.sh
+#
+# Description
+#     Startup file for OpenFOAM
+#     Sourced from OpenFOAM-<VERSION>/etc/bashrc
+#
+# Author:
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology (DAER)
+#     Politecnico di Milano
+#------------------------------------------------------------------------------
+
+export POLIMI_BIN=$POLIMI_PROJECT_DIR/bin
+export POLIMI_APP=$POLIMI_PROJECT_DIR/applications
+export POLIMI_SRC=$POLIMI_PROJECT_DIR/src
+export POLIMI_DOC=$POLIMI_PROJECT_DIR/doc
+export POLIMI_ETC=$POLIMI_PROJECT_DIR/etc
+
+export POLIMI_SOLVERS=$POLIMI_PROJECT_DIR/applications/solvers
+export POLIMI_MODULES=$POLIMI_PROJECT_DIR/applications/modules
+export POLIMI_UTILITIES=$POLIMI_PROJECT_DIR/applications/utilities
+export POLIMI_TUTORIALS=$POLIMI_PROJECT_DIR/tutorials
+
+export POLIMI_APPBIN=$POLIMI_PROJECT_DIR/platforms/$WM_OPTIONS/bin
+export POLIMI_LIBBIN=$POLIMI_PROJECT_DIR/platforms/$WM_OPTIONS/lib
+
+export POLIMI_THIRD_PARTY_DIR=$POLIMI_PROJECT_DIR/thirdParty
+
+# check if folders exist
+[ ! -d "$POLIMI_APPBIN" ] && mkdir -p "$POLIMI_APPBIN";
+[ ! -d "$POLIMI_LIBBIN" ] && mkdir -p "$POLIMI_LIBBIN";
+
+export FOAM_SITE=$WM_PROJECT_INST_DIR/site/$WM_PROJECT_VERSION/etc
+# [ ! -d "$FOAM_SITE" ] && mkdir -p "$FOAM_SITE";
+
+export FOAM_USER_SITE=$HOME/.OpenFOAM/$WM_PROJECT_VERSION
+[ ! -d "$FOAM_USER_SITE" ] && mkdir -p "$FOAM_USER_SITE";
+
+
+_foamAddLib $POLIMI_LIBBIN
+_foamAddPath $POLIMI_BIN
+_foamAddPath $POLIMI_APPBIN
+# -----------------------------------------------------------------------
+
+

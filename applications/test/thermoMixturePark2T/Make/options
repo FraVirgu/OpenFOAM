@@ -1,0 +1,6 @@
+EXE_INC = \
+    -I$(POLIMI_SRC)/thermophysicalModels/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude
+
+EXE_LIBS = \
+    -lspecie

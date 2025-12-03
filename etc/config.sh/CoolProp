@@ -1,0 +1,97 @@
+#----------------------------------*-sh-*--------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     | Website:  https://openfoam.org
+#   \\  /    A nd           | Copyright (C) 2014-2018 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File
+#     etc/config.sh/CGAL
+#
+# Description
+#     Configuration file for CoolProp include/libraries.
+#     Sourced from OpenFOAM-<VERSION>/etc/bashrc
+#
+
+#     To couple CoolProp (http://www.coolprop.org) to OpenFOAM, please:
+#
+#     1) install CoolProp according to the following steps:
+#
+#         # Go to foam3rdParty dir:
+#         cd $FOAM_THIRD_PARTY
+#
+#         # Check out the sources from CoolProp
+#         git clone https://github.com/CoolProp/CoolProp --recursive
+#
+#         # Move into the folder you just created
+#         cd CoolProp
+#
+#         # Make a build folder
+#         mkdir build && cd build
+#
+#         # check cmake compilers are consistent with the OF installation
+#         export CC="$WM_CC"
+#         export CXX="$WM_CXX"
+#
+#         # Generate builder (defaults to 64-bit on 64-bit machine)
+#         cmake .. -DCOOLPROP_SHARED_LIBRARY=ON -DCMAKE_BUILD_TYPE=Release
+#
+#         # Build
+#         cmake --build .
+#
+#     2) You need to add CoolProp/build folder to LD_LIBRARY_PATH
+#
+#     export LD_LIBRARY_PATH=$WM_THIRD_PARTY_DIR/CoolProp/build:$LD_LIBRARY_PATH
+#
+#     3) In the source code, please remember to insert in the header files:
+#
+#         #define COOLPROP_LIB
+#         #include "CoolPropLib.h"
+#
+# Author:
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology (DAER)
+#     Politecnico di Milano
+#
+#------------------------------------------------------------------------------
+
+# installation type (local/network/thesis)
+export COOLPROP_ARCH_PATH=$WM_THIRD_PARTY_DIR/CoolProp
+
+# include (header) files
+export COOLPROP_INCLUDE_DIR=$COOLPROP_ARCH_PATH/include
+
+# dynamic libraries
+export COOLPROP_LIB_DIR=$COOLPROP_ARCH_PATH/build
+
+
+if [ -d "$COOLPROP_ARCH_PATH" ]
+then
+    export LD_LIBRARY_PATH=$COOLPROP_LIB_DIR:$LD_LIBRARY_PATH
+
+    if [ "$FOAM_VERBOSE" -a "$PS1" ]
+    then
+        echo "Using COOLPROP" 1>&2
+        echo "    at $COOLPROP_ARCH_PATH" 1>&2
+    fi
+else
+    unset COOLPROP_ARCH_PATH COOLPROP_LIB_DIR COOLPROP_INCLUDE_DIR
+fi
+
+#------------------------------------------------------------------------------

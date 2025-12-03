@@ -1,0 +1,102 @@
+#----------------------------------*-sh-*--------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2011-2013 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File
+#     etc/config/settings.sh
+#
+# Description
+#     Startup file for OpenFOAM
+#     Sourced from OpenFOAM-<VERSION>/etc/bashrc
+#
+# Author:
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology
+#     Politecnico di Milano
+#------------------------------------------------------------------------------
+
+# Source files, possibly with some verbosity
+_foamSource()
+{
+    while [ $# -ge 1 ]
+    do
+        [ "$FOAM_VERBOSE" -a "$PS1" ] && echo "Sourcing: $1"
+        . $1
+       shift
+    done
+}
+
+
+# make directory if it doesn't already exist
+_foamMkDir()
+{
+   while [ $# -ge 1 ]
+   do
+      [ -d $1 ] || mkdir -p $1
+      shift
+   done
+}
+
+
+# prefix to PATH
+_foamAddPath()
+{
+   while [ $# -ge 1 ]
+   do
+      export PATH=$1:$PATH
+      shift
+   done
+}
+
+
+# prefix to LD_LIBRARY_PATH
+_foamAddLib()
+{
+    while [ $# -ge 1 ]
+    do
+        export LD_LIBRARY_PATH=$1:$LD_LIBRARY_PATH
+        shift
+    done
+}
+
+
+_foamAddPathAndLib()
+{   
+   while [ "$#" -ge 1 ]; do
+      export PATH=$1/bin:$PATH
+      export LD_LIBRARY_PATH=$1/lib64:$1/lib:$LD_LIBRARY_PATH
+      export PATH=$1/include:$PATH
+      shift
+   done
+}
+
+
+_unsetTempVars()
+{
+    unset _foamAddPath
+    unset _foamMkDir
+    unset _foamAddLib
+    unset _foamSource
+    unset etcFolder;
+}
+
+# -----------------------------------------------------------------------

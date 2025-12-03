@@ -1,0 +1,109 @@
+#---------------------------------*- sh -*-------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2024 F. Piscaglia
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File
+#     etc/bashrc
+#
+# Description
+#     Startup file for HyperPack Project
+#
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology (DAER)
+#     Politecnico di Milano
+#
+#------------------------------------------------------------------------------
+
+
+################################################################################
+# USER EDITABLE PART: Changes made here may be lost with the next upgrade
+#
+# FOAM_INST_DIR is the location of the OpenFOAM installation which defaults to
+# the directory two levels below this file, or $HOME/$WM_PROJECT if that
+# directory cannot be determined.
+#
+[ "$BASH" ] && bashrcFile=${BASH_SOURCE}
+[ "$ZSH_NAME" ] && bashrcFile=$0
+if [ -n "$bashrcFile" ]
+then
+    export POLIMI_PROJECT_DIR=$(cd $(dirname $bashrcFile)/../ && pwd -P)
+else
+    export POLIMI_PROJECT_DIR=$GITHUB/templateTesista
+fi
+
+export POLIMI_PROJECT_INST_DIR=$POLIMI_PROJECT_DIR/../
+
+unset bashrcFile
+#
+# END OF (NORMAL) USER EDITABLE PART
+################################################################################
+
+export POLIMI_SITE_LIBBIN=$FOAM_USER_LIBBIN
+export POLIMI_SITE_APPBIN=$FOAM_USER_APPBIN
+
+
+# ------------------------------------------------------------------------------
+# add path to other third party libraries
+export THIRD_PARTY_BIN=$WM_THIRD_PARTY_DIR/platforms/${WM_ARCH}${WM_COMPILER}
+
+# load functions
+. $POLIMI_PROJECT_DIR/etc/config.sh/functions
+
+ _foamSource $POLIMI_PROJECT_DIR/etc/config.sh/settings
+
+# source user defined functions
+_foamSource $POLIMI_ETC/config.sh/aliases
+
+# -----------------------------------------------------------------------
+#- setup for advanced thermodynamics
+# network, version-dependent (suggested)
+#etcFolder=$WM_PROJECT_INST_DIR/site/$WM_PROJECT_VERSION/etc/codeTemplates/dynamicCode;
+etcFolder=$HOME/.OpenFOAM/$WM_PROJECT_VERSION
+
+# cleanup 
+cp -r $POLIMI_ETC/codeTemplates $etcFolder;
+
+# etcFolder=$WM_PROJECT_INST_DIR/site/$WM_PROJECT_VERSION/etc/codeTemplates/dynamicCode;
+rm -rf $FOAM_USER_SITE/codeTemplates $FOAM_USER_SITE/caseDicts
+
+cp -r $POLIMI_ETC/codeTemplates $FOAM_USER_SITE;
+
+# -----------------------------------------------------------------------
+
+# NVIDIA AmgX
+_foamSource $POLIMI_ETC/config.sh/amgx
+
+# Mutation++
+_foamSource $POLIMI_ETC/config.sh/mutationpp
+
+# coolProp
+_foamSource $POLIMI_ETC/config.sh/CoolProp
+
+# Gsl (canteraToFoam)
+_foamSource $POLIMI_ETC/config.sh/gsl
+
+
+# -----------------------------------------------------------------------
+
+# cleanup environment:
+# ~~~~~~~~~~~~~~~~~~~~
+_unsetTempVars;

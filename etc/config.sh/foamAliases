@@ -1,0 +1,83 @@
+#!/bin/bash
+#
+# File
+#     etc/config/foamAliases
+#
+# Description
+#     Aliases file to quickly switch between different
+#     OpenFOAM/LibPoliMi releases installed on the same system.
+#     System variables and release-specific aliases are set by
+#     sourcing shell files (bashrc)
+#
+#     Usage: source from ~/.bashrc
+#
+# Authors:
+#    Federico Piscaglia
+#
+#------------------------------------------------------------------------------
+
+export PS_OLD=$PS1
+
+_sourceFoam() {\
+
+    foamInstall=$HOME;
+
+    # WM_COMPILE_OPTION is disabled in the bashrc file
+    export WM_COMPILE_OPTION=$2;
+    
+    bashrc=$foamInstall/.OpenFOAM/$1/bashrc;
+
+    [ -f $bashrc ] && source $bashrc || exit;
+
+    alias foam3rdParty='cd $WM_THIRD_PARTY_DIR'
+
+    [ -d $WM_PROJECT_INST_DIR/LibPoliMi/LibPoliMi-$WM_PROJECT_VERSION ] && source ~/.OpenFOAM/PoliMi/bashrc
+    ##export PS1="\[\033[01;32m\][${WM_PROJECT_VERSION}-$WM_COMPILE_OPTION] \[\033[01;34m\]$PS_OLD\[\033[00m\]"
+}
+
+
+_makeOFAlias()\
+{
+    version=$1
+    
+    shortVersion=`echo $version | sed "s/\.//g"`
+
+    alias of$shortVersion="_sourceFoam $version Opt"
+
+    # compile Debug and Prof
+    for option in Debug Prof;
+    do
+        alias of$shortVersion$option="_sourceFoam $version $option"
+    done
+}
+
+_makePVAlias()
+{
+    version=$1;
+    major=$2;
+    export pvInstall=~/bin/ParaView
+    shortVersion=`echo $version | sed "s/\.//g"`
+    alias pv$shortVersion="_sourcePV $version $major"
+}
+
+
+#- ESI-OpenCFD (OpenFOAM-plus)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#- development line
+_makeOFAlias plus  
+
+#- stable release
+_makeOFAlias v1712
+_makeOFAlias v2206
+_makeOFAlias v2212
+_makeOFAlias v2306
+
+#- OpenFOAM Foundation
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+_makeOFAlias dev
+_makeOFAlias 7
+_makeOFAlias 8
+_makeOFAlias 10
+_makeOFAlias 11
+
+unset _makeOFAlias

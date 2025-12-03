@@ -1,0 +1,4 @@
+SOURCE += shockThermo.C
+
+LIB = $(FOAM_USER_LIBBIN)/libshockThermo
+

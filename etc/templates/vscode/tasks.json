@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "./Allwmake",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Generated task for building OpenFOAM application"
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "${env:FOAM_APPBIN}/foamRun",
+            "args": ["-case", "${env:OPENFOAM_CASE_FOLDER}"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Generated task for running OpenFOAM application"
+        }
+    ]
+}

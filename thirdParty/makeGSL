@@ -1,0 +1,79 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | Copyright (C) 2011-2018 OpenFOAM Foundation
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM.
+#
+#     OpenFOAM is free software: you can redistribute it and/or modify it
+#     under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+#     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+#     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+#     for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Script
+#     makeGSL
+#
+# Description
+#     Build script for GSL. Needed to compile canteraToFoam
+#
+#
+# Author:
+#     Federico Piscaglia
+#     Dept. of Aerospace Science and Technology DAER)
+#     Politecnico di Milano
+#
+#------------------------------------------------------------------------------
+
+cd ${0%/*} || exit 1    # Run from this directory
+
+gslArchive=gsl-${GSL_VERSION}.tar.gz
+
+curDir=$PWD;
+
+# cleanup the installation
+rm -rf gsl $GSL_DIR;
+
+mkdir -p gsl/build/gsl-${GSL_VERSION} gsl/src
+
+# download GSL
+
+[ ! -f $gslArchive ] &&  wget https://mirror.kumi.systems/gnu/gsl/$gslArchive --no-check-certificate
+
+# extract GSL
+tar xzf $gslArchive -C gsl/src/
+
+# compile GSL
+cd gsl/build/gsl-$GSL_VERSION
+
+#configure 
+./../../src/gsl-$GSL_VERSION/./configure --prefix=$GSL_ARCH_PATH
+###$WM_THIRD_PARTY_DIR/platforms/$WM_ARCH$WM_COMPILER_ARCH/gsl-$GSL_VERSION
+
+# make 
+make -j
+
+# install
+make install
+
+
+if [ $? -gt 0 ]; then
+    code=$?
+    echo " -------------------------------------------"
+    echo " Installation NOT  succeeded. See log file for details"
+    echo " -------------------------------------------"
+fi
+
+# clean up installation files
+rm -rf $curDir/gsl

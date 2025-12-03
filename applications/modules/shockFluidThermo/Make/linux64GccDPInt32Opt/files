@@ -1,0 +1,9 @@
+SOURCE += thermophysicalPredictor.C
+SOURCE += shockFluidThermo.C
+
+SOURCE += derivedFvPatchFields/mixedFixedValueSlip/mixedFixedValueSlipFvPatchFields.C
+SOURCE += derivedFvPatchFields/U/maxwellSlipUFvPatchVectorField.C
+SOURCE += derivedFvPatchFields/T/smoluchowskiJumpTFvPatchScalarField.C
+SOURCE += derivedFvPatchFields/rho/fixedRhoFvPatchScalarField.C
+
+LIB = $(FOAM_LIBBIN)/libshockFluidThermo
