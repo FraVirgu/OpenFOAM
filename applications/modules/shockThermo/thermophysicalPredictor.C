@@ -34,34 +34,24 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 {
 
     // add support to multi-specie chemistry
-    tmp<fv::convectionScheme<scalar>> mvConvection
-    (
-        fv::convectionScheme<scalar>::New
-        (
+    tmp<fv::convectionScheme<scalar>> mvConvection(
+        fv::convectionScheme<scalar>::New(
             mesh,
             fields,
             phi,
-            mesh.schemes().div("div(phi,Yi_h)")
-        )
-    );
+            mesh.schemes().div("div(phi,Yi_h)")));
 
     reaction->correct();
 
     forAll(Y, i)
     {
-        volScalarField& Yi = Y_[i];
+        volScalarField &Yi = Y_[i];
 
         if (thermo_.solveSpecie(i))
         {
-            fvScalarMatrix YiEqn
-            (
-                fvm::ddt(rho, Yi)
-              + mvConvection->fvmDiv(phi, Yi)
-              + thermophysicalTransport->divj(Yi)
-             ==
-                reaction->R(Yi)
-              + fvModels().source(rho, Yi)
-            );
+            fvScalarMatrix YiEqn(
+                fvm::ddt(rho, Yi) + mvConvection->fvmDiv(phi, Yi) + thermophysicalTransport->divj(Yi) ==
+                reaction->R(Yi) + fvModels().source(rho, Yi));
 
             YiEqn.relax();
 
@@ -86,7 +76,6 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
             << exit(FatalError);
     }
 
-
     //- ------------------------------------------------------------------------
 
     // solve the equation of energy.
@@ -96,44 +85,33 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
     // between thermo classes. The thermo.correct() function must be the one
     // defined in the derived class; shockFluid::thermophysicalPredictor() is
     // pasted here below.
-    
-    volScalarField& e = thermo_.he();
+
+    volScalarField &e = thermo_.he();
 
     const surfaceScalarField e_pos(interpolate(e, pos, thermo.T().name()));
     const surfaceScalarField e_neg(interpolate(e, neg, thermo.T().name()));
 
-    surfaceScalarField phiEp
-    (
+    surfaceScalarField phiEp(
         "phiEp",
-        aphiv_pos()*(rho_pos()*(e_pos + 0.5*magSqr(U_pos())) + p_pos())
-      + aphiv_neg()*(rho_neg()*(e_neg + 0.5*magSqr(U_neg())) + p_neg())
-      + aSf()*(p_pos() - p_neg())
-    );
+        aphiv_pos() * (rho_pos() * (e_pos + 0.5 * magSqr(U_pos())) + p_pos()) + aphiv_neg() * (rho_neg() * (e_neg + 0.5 * magSqr(U_neg())) + p_neg()) + aSf() * (p_pos() - p_neg()));
 
     // Make flux for pressure-work absolute
     if (mesh.moving())
     {
-        phiEp += mesh.phi()*(a_pos()*p_pos() + a_neg()*p_neg());
+        phiEp += mesh.phi() * (a_pos() * p_pos() + a_neg() * p_neg());
     }
 
-
     //- for high enthalpy flows, e = e_rt + e_ve.
-    
-    fvScalarMatrix EEqn
-    (
-        fvm::ddt(rho, e) + fvc::div(phiEp)
-      + fvc::ddt(rho, K)
-     ==
-        fvModels().source(rho, e)
-    );
+
+    fvScalarMatrix EEqn(
+        fvm::ddt(rho, e) + fvc::div(phiEp) + fvc::ddt(rho, K) ==
+        fvModels().source(rho, e));
 
     if (!inviscid)
     {
-        const surfaceScalarField devTauDotU
-        (
+        const surfaceScalarField devTauDotU(
             "devTauDotU",
-            devTau() & (a_pos()*U_pos() + a_neg()*U_neg())
-        );
+            devTau() & (a_pos() * U_pos() + a_neg() * U_neg()));
 
         EEqn += thermophysicalTransport->divq(e) + fvc::div(devTauDotU);
     }
@@ -146,9 +124,80 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
     fvConstraints().constrain(e);
 
+    if (!heThermoPtr_)
+    {
+        // ------------------------------------------------------------------------
+        // 3. VIBRATIONAL-ELECTRONIC ENERGY (Using local mixture)
+        // ------------------------------------------------------------------------
+
+        // 1. Get references to the fields we need for the State
+        const volScalarField &p = thermo_.p();
+        const volScalarField &T = thermo_.T();
+
+        // FIX 1: Use 'heThermo_->Tve()' instead of 'thermo_.Tve()'
+        // 'thermo_' is the standard OpenFOAM class (doesn't know about Tve).
+        // 'heThermo_' is your custom wrapper (knows about Tve).
+
+        const volScalarField &Tve = heThermoPtr_->Tve();
+
+        mutationMixture &mix = *mutationMixPtr_;
+
+        // 2. Initialize the fields we want to calculate
+        volScalarField eve(
+            IOobject("eve", mesh.time().name(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            mesh,
+            dimensionedScalar("0", dimEnergy / dimMass, 0.0));
+
+        volScalarField Qve(
+            IOobject("Qve", mesh.time().name(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            mesh,
+            dimensionedScalar("0", dimEnergy / dimMass / dimTime, 0.0));
+
+        // 3. Reusable array
+        scalarField Y_cell(Y.size());
+
+        // 4. MAIN LOOP
+        forAll(eve, celli)
+        {
+            forAll(Y, k)
+            {
+                Y_cell[k] = Y[k][celli];
+            }
+
+            mix.setState(
+                p[celli],
+                T[celli],
+                Tve[celli],
+                Y_cell);
+
+            scalar cellEve = 0.0;
+            forAll(Y, k)
+            {
+                cellEve += Y[k][celli] * mix.speciesEve(k);
+            }
+            eve[celli] = cellEve;
+
+            // Placeholder for source term
+            Qve[celli] = 0.0;
+        }
+
+        eve.correctBoundaryConditions();
+        Qve.correctBoundaryConditions();
+
+        // ------------------------------------------------------------------------
+        // 5. SOLVE THE EQUATION
+        // ------------------------------------------------------------------------
+
+        fvScalarMatrix EveEqn(
+            fvm::ddt(rho, eve) + fvc::div(phi, eve) - fvm::laplacian(thermophysicalTransport->alpha(), eve) ==
+            Qve);
+
+        EveEqn.relax();
+        EveEqn.solve();
+    }
+
+    // FIX 3: Use 'heThermo_->correct()' to ensure T and Tve are updated together
     thermo_.correct();
-
 }
-
 
 // ************************************************************************* //

@@ -57,14 +57,26 @@ namespace Foam
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::solvers::shockThermo::shockThermo(fvMesh &mesh)
-    :
-
-      shockFluid(
+    : shockFluid(
           mesh,
           autoPtr<fluidThermo>(fluidMulticomponentThermo::New(mesh).ptr())),
 
       thermo_(refCast<fluidMulticomponentThermo>(shockFluid::thermo_)),
 
+      // Initialize the Mixture manually
+      mutationMixPtr_(
+          new mutationMixture(
+              // Read "thermophysicalProperties" dictionary
+              IOdictionary(
+                  IOobject(
+                      "thermophysicalProperties",
+                      mesh.time().constant(),
+                      mesh,
+                      IOobject::MUST_READ,
+                      IOobject::NO_WRITE)),
+              mesh,
+              "gas" // Phase name
+              )),
       Y_(thermo_.Y()),
 
       reaction(combustionModel::New(thermo_, momentumTransport())),
@@ -75,7 +87,15 @@ Foam::solvers::shockThermo::shockThermo(fvMesh &mesh)
               thermo_)),
       thermo(thermo_),
       Y(Y_)
+
 {
+
+    // Safe OpenFOAM-style runtime cast
+    heThermoPtr_ =
+        isA<highEnthalpyMulticomponentThermo>(thermo_)
+            ? &refCast<highEnthalpyMulticomponentThermo>(thermo_)
+            : nullptr;
+
     thermo.validate(type(), "h", "e");
 
     forAll(Y, i)

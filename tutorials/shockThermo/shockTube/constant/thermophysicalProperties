@@ -1,0 +1,41 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// -------------------------------------------------------------------------
+// 1. MUTATION++ CONFIGURATION
+// -------------------------------------------------------------------------
+
+mechanism    air_5; 
+
+specie
+{
+    // 5 Species (Neutral Air)
+    // CHECK THE ORDER in your air_5.xml file! 
+    // It is usually: N2 O2 NO N O
+    species
+    (
+        N2
+        O2
+        NO
+        N
+        O
+    );
+}
+
+
+
+// ************************************************************************* //

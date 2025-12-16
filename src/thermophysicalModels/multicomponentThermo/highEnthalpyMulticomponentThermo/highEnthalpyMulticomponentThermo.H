@@ -48,63 +48,51 @@ SourceFiles
 namespace Foam
 {
 
-/*---------------------------------------------------------------------------*\
-                      Class highEnthalpyMulticomponentThermo Declaration
-\*---------------------------------------------------------------------------*/
+    /*---------------------------------------------------------------------------*\
+                          Class highEnthalpyMulticomponentThermo Declaration
+    \*---------------------------------------------------------------------------*/
 
-class highEnthalpyMulticomponentThermo
-:
-    virtual public psiThermo,
-    virtual public fluidMulticomponentThermo
-{
-public:
-
-    // Public Classes
+    class highEnthalpyMulticomponentThermo
+        : virtual public psiThermo,
+          virtual public fluidMulticomponentThermo
+    {
+    public:
+        // Public Classes
 
         //- Forward declare the composite class
         class composite;
 
+        virtual volScalarField &Tve() = 0;
+        virtual const volScalarField &Tve() const = 0;
+        virtual void correctTve(const volScalarField &newTve) = 0;
 
-    // Public Typedefs
+        // Public Typedefs
 
         //- The derived type
-        template<class MixtureType>
+        template <class MixtureType>
         using DerivedThermoType =
-            HighEnthalpyMulticomponentThermo
-            <
-                MulticomponentThermo
-                <
-                    PsiThermo
-                    <
-                        BasicThermo<MixtureType, composite>
-                    >
-                >
-            >;
+            HighEnthalpyMulticomponentThermo<
+                MulticomponentThermo<
+                    PsiThermo<
+                        BasicThermo<MixtureType, composite>>>>;
 
+        //- Runtime type information
+        TypeName("highEnthalpyMulticomponentThermo");
 
-    //- Runtime type information
-    TypeName("highEnthalpyMulticomponentThermo");
+        //- Declare run-time constructor selection tables
+        declareRunTimeSelectionTable(
+            autoPtr,
+            highEnthalpyMulticomponentThermo,
+            fvMesh,
+            (const fvMesh &mesh, const word &phaseName),
+            (mesh, phaseName));
 
-
-    //- Declare run-time constructor selection tables
-    declareRunTimeSelectionTable
-    (
-        autoPtr,
-        highEnthalpyMulticomponentThermo,
-        fvMesh,
-        (const fvMesh& mesh, const word& phaseName),
-        (mesh, phaseName)
-    );
-
-
-    // Selectors
+        // Selectors
 
         //- Standard selection based on fvMesh
-        static autoPtr<highEnthalpyMulticomponentThermo> New
-        (
-            const fvMesh&,
-            const word& phaseName=word::null
-        );
+        static autoPtr<highEnthalpyMulticomponentThermo> New(
+            const fvMesh &,
+            const word &phaseName = word::null);
 
         //- The derived name
         static word derivedThermoName()
@@ -112,80 +100,81 @@ public:
             return "highEnthalpyThermo";
         };
 
-    //- Destructor
-    virtual ~highEnthalpyMulticomponentThermo();
+        //- Destructor
+        virtual ~highEnthalpyMulticomponentThermo();
+    };
 
+    /*---------------------------------------------------------------------------*\
+                    Class highEnthalpyMulticomponentThermo::composite Declaration
+    \*---------------------------------------------------------------------------*/
 
-};
+    class highEnthalpyMulticomponentThermo::composite
+        : public basicThermo::implementation,
+          public fluidThermo::implementation,
+          public psiThermo::implementation,
+          public multicomponentThermo::implementation,
+          public highEnthalpyMulticomponentThermo
+    {
 
-
-/*---------------------------------------------------------------------------*\
-                Class highEnthalpyMulticomponentThermo::composite Declaration
-\*---------------------------------------------------------------------------*/
-
-class highEnthalpyMulticomponentThermo::composite
-:
-    public basicThermo::implementation,
-    public fluidThermo::implementation,
-    public psiThermo::implementation,
-    public multicomponentThermo::implementation,
-    public highEnthalpyMulticomponentThermo
-{
-
-private:
-
+    private:
+    public:
         volScalarField Tve_;
 
-public:
-
-    // Constructors
+        // Constructors
 
         //- Construct from dictionary, mesh and phase name
-        template<class MixtureType>
-        composite
-        (
-            const dictionary& dict,
-            const MixtureType& mixture,
-            const fvMesh& mesh,
-            const word& phaseName
-        )
-        :
-            basicThermo::implementation(dict, mesh, phaseName),
-            fluidThermo::implementation(dict, mesh, phaseName),
-            psiThermo::implementation(dict, mesh, phaseName),
-            multicomponentThermo::implementation
-            (
-                dict,
-                mixture.specieNames(),
-                mesh,
-                phaseName
-            ),
-            Tve_
-            (
-                IOobject
-                (
-                    "Tve",
-                    mesh.time().name(),
-                    mesh,
-                    IOobject::MUST_READ,
-                    IOobject::AUTO_WRITE
-                ),
-                mesh
-            )
+        template <class MixtureType>
+        composite(
+            const dictionary &dict,
+            const MixtureType &mixture,
+            const fvMesh &mesh,
+            const word &phaseName)
+            : basicThermo::implementation(dict, mesh, phaseName),
+              fluidThermo::implementation(dict, mesh, phaseName),
+              psiThermo::implementation(dict, mesh, phaseName),
+              multicomponentThermo::implementation(
+                  dict,
+                  mixture.specieNames(),
+                  mesh,
+                  phaseName),
+              Tve_(
+                  IOobject(
+                      "Tve",
+                      mesh.time().name(),
+                      mesh,
+                      IOobject::MUST_READ,
+                      IOobject::AUTO_WRITE),
+                  mesh)
         {
 
-            Info<< "highEnthalpyMulticomponentThermo::composite - "
-                << "constructor"
-                << endl;
+            Info << "highEnthalpyMulticomponentThermo::composite - "
+                 << "constructor"
+                 << endl;
         }
-};
 
+        volScalarField &Tve() override
+        {
+            return Tve_;
+        }
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+        const volScalarField &Tve() const override
+        {
+            return Tve_;
+        }
 
+        void correctTve(const volScalarField &newTve) override
+        {
+            // 1. Copy the field values
+            Tve_ = newTve;
 
+            // 2. Ensure boundaries are consistent
+            Tve_.correctBoundaryConditions();
+        }
+    };
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
 
