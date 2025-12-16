@@ -196,8 +196,6 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
         EveEqn.solve();
 
         // --- 4. UPDATE TEMPERATURES (Inversion Step) ---
-        // We now have new Energy 'e' and new Vib-Energy 'eve'.
-        // We must find the T and Tve that match these energies.
 
         forAll(T, celli)
         {
@@ -216,13 +214,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
             scalar e_tr_target = e_total_new - eve_new;
             scalar T_old = thermo_.T()[celli];
 
-            // You need to implement solveT in mutationMixture or approximate it:
-            // thermo_.T()[celli] = mix.solveT(rho[celli], e_tr_target, Y_cell, T_old);
-
-            // Temporary Approx if solveT is missing:
-            // Cv_trans_rot approx 2.5 * R_mix for molecules
-            scalar Cv_approx = 2.5 * (8314.0 / mix.mixtureMw());
-            thermo_.T()[celli] = e_tr_target / Cv_approx;
+            thermo_.T()[celli] = mix.solveT(rho[celli], e_tr_target, Y_cell, T_old);
         }
 
         Tve.correctBoundaryConditions();

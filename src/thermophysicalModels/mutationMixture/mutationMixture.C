@@ -268,10 +268,65 @@ namespace Foam
         const scalar T_guess) const
     {
         double T_new = T_guess;
-        // ... (Similar Newton Loop as above, but for 2.5*R*T or 1.5*R*T) ...
-        // Simplified explicit solve for fully dissociated gas (just translational):
-        // T = e_tr / (1.5 * R_mix)
-        // For molecules, you need the loop.
-        return T_new; // Placeholder: Implement the loop similar to solveTve
+        const int maxIter = 20;
+        const double tol = 1.0e-6;
+        const double Ru = Mutation::RU; // Universal Gas Constant
+
+        for (int iter = 0; iter < maxIter; ++iter)
+        {
+            double T_old = T_new;
+
+            double e_calc = 0.0;
+            double cv_calc = 0.0;
+
+            // --- Loop over species to sum up Energy and Cv ---
+            for (int k = 0; k < Y.size(); ++k)
+            {
+                // Specific Gas Constant for this species: R = Ru / M
+                double R_spec = Ru / Mw_work_[k];
+
+                // Degrees of Freedom Factor:
+                // Translation = 1.5
+                // Rotation    = 1.0 (only for molecules)
+                double factor = 1.5;
+
+                // Heuristic: If name length > 1 (e.g. "N2", "NO"), it is a molecule
+                if (species_[k].size() > 1)
+                {
+                    factor += 1.0;
+                }
+
+                double cv_spec = factor * R_spec;
+
+                // Accumulate Mixture properties
+                // e = sum( Y_i * Cv_i * T )
+                e_calc += Y[k] * cv_spec * T_old;
+                cv_calc += Y[k] * cv_spec;
+            }
+
+            // --- Newton-Raphson Step ---
+            // f(T) = e_calc(T) - e_target = 0
+            // f'(T) = cv_calc
+            // delta = f(T) / f'(T)
+
+            if (cv_calc < 1.0e-12)
+                break; // Avoid division by zero
+
+            double delta = (e_calc - e_tr_target) / cv_calc;
+
+            T_new = T_old - delta;
+
+            // --- Safety Clamps ---
+            // Prevent T from going negative or exploding during iteration
+            T_new = std::max(200.0, std::min(25000.0, T_new));
+
+            // --- Convergence Check ---
+            if (std::abs(delta / T_new) < tol)
+            {
+                return static_cast<scalar>(T_new);
+            }
+        }
+
+        return static_cast<scalar>(T_new);
     }
 } // namespace Foam
