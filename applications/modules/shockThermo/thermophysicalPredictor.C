@@ -305,35 +305,71 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
         forAll(T, celli)
         {
-            for (label k = 0; k < Y.size(); ++k)
-                Y_cell[k] = Y[k][celli];
+            // --------------------------------------------------
+            // 1. Read conserved quantities
+            // --------------------------------------------------
+            const scalar e_total = thermo_.he()[celli]; // total specific energy
+            const scalar eve_new = eve[celli];          // vibrational energy
 
-            scalar e_total_new = thermo_.he()[celli];
-            scalar eve_new = eve[celli];
-
-            // A. Update Tve
-            scalar Tve_old = Tve[celli];
-
+            // --------------------------------------------------
+            // 2. Build a SAFE composition vector for Mutation++
+            // --------------------------------------------------
             const scalar Ymin = 1e-20;
             scalar sumY = 0.0;
+
             forAll(Y, k)
             {
                 scalar yk = Y[k][celli];
+
                 if (!std::isfinite(yk))
                     yk = 0.0;
+
                 yk = max(yk, Ymin);
                 Y_cell[k] = yk;
                 sumY += yk;
             }
-            forAll(Y, k) Y_cell[k] /= sumY;
-            Tve[celli] = mix.solveTve(rho[celli], eve_new, Y_cell, Tve_old);
 
-            // B. Update T (Translational)
-            // e_trans_rot = e_total - e_vib
-            scalar e_tr_target = e_total_new - eve_new;
-            scalar T_old = thermo_.T()[celli];
+            forAll(Y_cell, k)
+                Y_cell[k] /= sumY;
 
-            thermo_.T()[celli] = mix.solveT(rho[celli], e_tr_target, Y_cell, T_old);
+            // --------------------------------------------------
+            // 3. Safe primitive values
+            // --------------------------------------------------
+            const scalar rho_safe =
+                max(rho[celli], scalar(1e-6));
+
+            const scalar T_old =
+                max(thermo_.T()[celli], scalar(200.0));
+
+            const scalar Tve_old =
+                max(Tve[celli], scalar(200.0));
+
+            // --------------------------------------------------
+            // 4. IMPORTANT: refresh Mutation++ state
+            // --------------------------------------------------
+            mix.setState(rho_safe, T_old, Tve_old, Y_cell);
+
+            // --------------------------------------------------
+            // 5. Invert vibrational temperature from eve
+            // --------------------------------------------------
+            Tve[celli] =
+                mix.solveTve(
+                    rho_safe,
+                    eve_new,
+                    Y_cell,
+                    Tve_old);
+
+            // --------------------------------------------------
+            // 6. Invert translational temperature from (e − eve)
+            // --------------------------------------------------
+            const scalar e_tr_target = e_total - eve_new;
+
+            thermo_.T()[celli] =
+                mix.solveT(
+                    rho_safe,
+                    e_tr_target,
+                    Y_cell,
+                    T_old);
         }
 
         Tve.correctBoundaryConditions();
