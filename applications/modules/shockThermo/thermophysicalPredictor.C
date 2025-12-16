@@ -27,6 +27,7 @@ License
 #include "fvmDdt.H"
 #include "fvcDiv.H"
 #include "fvcDdt.H"
+#include <cmath>
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
@@ -123,12 +124,15 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
     EEqn.solve();
 
     fvConstraints().constrain(e);
-
-    if (!heThermoPtr_)
+    // ------------------------------------------------------------------------
+    // 3. VIBRATIONAL-ELECTRONIC ENERGY (Using local mixture)
+    // ------------------------------------------------------------------------
+    if (heThermoPtr_)
     {
-        // ------------------------------------------------------------------------
-        // 3. VIBRATIONAL-ELECTRONIC ENERGY (Using local mixture)
-        // ------------------------------------------------------------------------
+
+        volScalarField &Tve = heThermoPtr_->Tve();
+
+        mutationMixture &mix = *mutationMixPtr_;
 
         // 1. Get references to the fields we need for the State
         const volScalarField &p = thermo_.p();
@@ -138,46 +142,148 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
         // 'thermo_' is the standard OpenFOAM class (doesn't know about Tve).
         // 'heThermo_' is your custom wrapper (knows about Tve).
 
-        volScalarField &Tve = heThermoPtr_->Tve();
-
-        mutationMixture &mix = *mutationMixPtr_;
-
         // 2. Initialize the fields we want to calculate
         volScalarField eve(
-            IOobject("eve", mesh.time().name(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            IOobject(
+                "eve",
+                mesh.time().name(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE),
             mesh,
             dimensionedScalar("0", dimEnergy / dimMass, 0.0));
 
         volScalarField Qve(
-            IOobject("Qve", mesh.time().name(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+            IOobject(
+                "Qve",
+                mesh.time().name(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE),
             mesh,
-            dimensionedScalar("0", dimEnergy / dimMass / dimTime, 0.0));
+            dimensionedScalar("0", dimEnergy / dimVolume / dimTime, 0.0));
+
+        // 3. SET BOUNDARY CONDITIONS FOR eve AND Qve
+        forAll(eve.boundaryFieldRef(), patchi)
+        {
+            const fvPatch &patch = mesh.boundary()[patchi];
+            const word &TpatchType = thermo_.T().boundaryField()[patchi].type();
+
+            // --- eve BC
+            eve.boundaryFieldRef().set(
+                patchi,
+                fvPatchField<scalar>::New(
+                    TpatchType, // copy BC type from T
+                    patch,
+                    eve));
+
+            // --- Qve BC (zeroGradient is safest for a source term)
+            Qve.boundaryFieldRef().set(
+                patchi,
+                fvPatchField<scalar>::New(
+                    "zeroGradient",
+                    patch,
+                    Qve));
+        }
+
+        volScalarField kByCp(
+            IOobject(
+                "kByCp",
+                mesh.time().name(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE),
+            mesh,
+            dimensionedScalar("0", dimMass / (dimLength * dimTime), 0.0) // kg/(m s)
+        );
+
+        forAll(kByCp.boundaryFieldRef(), patchi)
+        {
+            const fvPatch &patch = mesh.boundary()[patchi];
+            const word pType = patch.type();
+
+            if (pType == "empty")
+            {
+                kByCp.boundaryFieldRef().set(
+                    patchi,
+                    fvPatchField<scalar>::New("empty", patch, kByCp));
+            }
+            else
+            {
+                kByCp.boundaryFieldRef().set(
+                    patchi,
+                    fvPatchField<scalar>::New("zeroGradient", patch, kByCp));
+            }
+        }
+
+        kByCp.correctBoundaryConditions();
 
         // 3. Reusable array
         scalarField Y_cell(Y.size());
 
-        // 4. MAIN LOOP
         forAll(eve, celli)
         {
-            forAll(Y, k)
+            // --- Read primitive values
+            scalar rhoVal = rho[celli];
+            scalar TVal = T[celli];
+            scalar TveVal = Tve[celli];
+
+            // --- Check finiteness FIRST (max() does not fix NaNs)
+            if (!std::isfinite(rhoVal) || !std::isfinite(TVal) || !std::isfinite(TveVal))
             {
-                Y_cell[k] = Y[k][celli];
+                FatalErrorInFunction
+                    << "Non-finite state at cell " << celli
+                    << " rho=" << rhoVal << " T=" << TVal << " Tve=" << TveVal
+                    << exit(FatalError);
             }
 
-            mix.setState(
-                p[celli],
-                T[celli],
-                Tve[celli],
-                Y_cell);
+            // --- Clamp + renormalize composition for Mutation++ (NO exact zeros)
+            const scalar Ymin = scalar(1e-30); // tiny, but nonzero
+            scalar sumY = 0.0;
+            scalar minY = GREAT;
 
+            forAll(Y, k)
+            {
+                scalar yk = Y[k][celli];
+                if (!std::isfinite(yk))
+                    yk = 0.0;
+
+                minY = min(minY, yk);
+
+                yk = max(yk, Ymin); // <-- key change: enforce strictly positive
+                Y_cell[k] = yk;
+                sumY += yk;
+            }
+
+            // renormalize
+            forAll(Y, k) Y_cell[k] /= sumY;
+
+            // --- Physical clamps (finite already guaranteed)
+            scalar rho_safe = max(rhoVal, scalar(1e-6)); // safer than 1e-8 for relaxation models
+            scalar T_safe = max(TVal, scalar(200.0));
+            scalar Tve_safe = max(TveVal, scalar(200.0));
+
+            // --- Push state into Mutation++
+            mix.setState(rho_safe, T_safe, Tve_safe, Y_cell);
+
+            // You MUST have already called mix.setState(...) for this cell
+            scalar kappa = mix.kappa(); // [W/m/K]
+            scalar Cp = mix.Cp();       // [J/kg/K]
+
+            // Safety clamp
+            Cp = max(Cp, scalar(1e-6));
+
+            kByCp[celli] = kappa / Cp; // [kg/(m s)]
+
+            // --- Compute mixture vibrational energy
             scalar cellEve = 0.0;
             forAll(Y, k)
             {
-                cellEve += Y[k][celli] * mix.speciesEve(k);
+                cellEve += Y_cell[k] * mix.speciesEve(k); // use sanitized Y_cell here too
             }
             eve[celli] = cellEve;
 
-            // Get Source Term [J/m^3/s]
+            // --- Source term (this is where you currently crash)
             Qve[celli] = mix.getVibrationalSource();
         }
 
@@ -189,7 +295,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
         // ------------------------------------------------------------------------
 
         fvScalarMatrix EveEqn(
-            fvm::ddt(rho, eve) + fvc::div(phi, eve) - fvm::laplacian(thermophysicalTransport->alpha(), eve) ==
+            fvm::ddt(rho, eve) + fvc::div(phi, eve) - fvm::laplacian(kByCp, eve) ==
             Qve);
 
         EveEqn.relax();
@@ -207,6 +313,19 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
             // A. Update Tve
             scalar Tve_old = Tve[celli];
+
+            const scalar Ymin = 1e-20;
+            scalar sumY = 0.0;
+            forAll(Y, k)
+            {
+                scalar yk = Y[k][celli];
+                if (!std::isfinite(yk))
+                    yk = 0.0;
+                yk = max(yk, Ymin);
+                Y_cell[k] = yk;
+                sumY += yk;
+            }
+            forAll(Y, k) Y_cell[k] /= sumY;
             Tve[celli] = mix.solveTve(rho[celli], eve_new, Y_cell, Tve_old);
 
             // B. Update T (Translational)
@@ -219,9 +338,10 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
         Tve.correctBoundaryConditions();
         thermo_.T().correctBoundaryConditions();
+        // Make sure the thermo object keeps your updated Tve
+        heThermoPtr_->correctTve(Tve);
     }
 
-    // FIX 3: Use 'heThermo_->correct()' to ensure T and Tve are updated together
     thermo_.correct();
 }
 

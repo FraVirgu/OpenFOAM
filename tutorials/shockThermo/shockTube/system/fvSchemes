@@ -30,6 +30,7 @@ divSchemes
 {
     default         none;
     div(phi,Yi_h)   Gauss limitedLinear 1;
+     div(phi,eve)    Gauss upwind;
 
 }
 

@@ -95,40 +95,37 @@ namespace Foam
     }
 
     // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
-
     void mutationMixture::setState(
-        const scalar p,
+        const scalar rho, // <--- INPUT IS NOW DENSITY
         const scalar T,
         const scalar Tve,
         const scalarField &Y) const
     {
         const int nSp = static_cast<int>(species_.size());
 
-        // 1. Fill Mass Fractions and Calc Mean MW
-        double invMeanMw = 0.0;
+        // 1. Fill Mass Fractions
         for (int i = 0; i < nSp; ++i)
         {
             Y_work_[i] = static_cast<double>(Y[i]);
-            invMeanMw += Y_work_[i] / Mw_work_[i];
         }
 
-        // 2. Ideal Gas Law for Mixture Density
-        // rho = p / (R_specific_mix * T)
-        const double Ru = Mutation::RU;
-        const double rho = static_cast<double>(p) / (Ru * invMeanMw * static_cast<double>(T));
-
-        // 3. Calculate Species Partial Densities
+        // 2. Set Density directly (Safest method for Density-Based solvers)
+        // We assume the solver (rhoCentralFoam) manages continuity correctly.
         for (int i = 0; i < nSp; ++i)
         {
-            rho_work_[i] = rho * Y_work_[i];
+            rho_work_[i] = static_cast<double>(rho) * Y_work_[i];
         }
 
-        // 4. Set Temperatures
-        T_work_[0] = static_cast<double>(T);   // T_tr
-        T_work_[1] = static_cast<double>(Tve); // T_ve
+        // 3. Safety Clamp for Temperatures
+        // Millikan-White crashes if T < ~100K due to T^(-1/3)
+        double T_safe = std::max(200.0, static_cast<double>(T));
+        double Tve_safe = std::max(200.0, static_cast<double>(Tve));
 
-        // 5. Update Mutation++ State
-        // stateModel 1 corresponds to Density + Temperature input
+        T_work_[0] = T_safe;   // T_tr
+        T_work_[1] = Tve_safe; // T_ve
+
+        // 4. Update Mutation++ State
+        // Model 1 = Density + Temperatures
         mixture_->setState(rho_work_.data(), T_work_.data(), 1);
     }
 
@@ -223,7 +220,7 @@ namespace Foam
         {
             // Set state with T_tr=T_new and T_ve=T_new to calculate properites at this temp
             // (We only care about the vibrational part here)
-            this->setState(101325.0, T_new, T_new, Y);
+            this->setState(rho, T_new, T_new, Y);
 
             // Calculate calculated Energy and Cv at this temperature
             double e_calc = 0.0;
@@ -235,7 +232,7 @@ namespace Foam
                 e_calc += Y[k] * speciesEve(k);
 
             // Perturb T
-            T_work_[1] += dT;
+            this->setState(rho, T_new, T_new + dT, Y);
             double e_plus = 0.0;
             for (int k = 0; k < Y.size(); ++k)
                 e_plus += Y[k] * speciesEve(k);

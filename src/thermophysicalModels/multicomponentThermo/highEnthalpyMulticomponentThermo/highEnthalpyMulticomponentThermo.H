@@ -164,10 +164,40 @@ namespace Foam
 
         void correctTve(const volScalarField &newTve) override
         {
-            // 1. Copy the field values
-            Tve_ = newTve;
+            // 1) Basic safety checks (optional but useful)
+            if (newTve.size() != Tve_.size())
+            {
+                FatalErrorInFunction
+                    << "Tve size mismatch: newTve=" << newTve.size()
+                    << " Tve_=" << Tve_.size()
+                    << exit(FatalError);
+            }
 
-            // 2. Ensure boundaries are consistent
+            if (newTve.dimensions() != Tve_.dimensions())
+            {
+                FatalErrorInFunction
+                    << "Tve dimensions mismatch: newTve=" << newTve.dimensions()
+                    << " Tve_=" << Tve_.dimensions()
+                    << exit(FatalError);
+            }
+
+            // 2) Copy INTERNAL values (raw)
+            forAll(Tve_.internalFieldRef(), i)
+            {
+                Tve_.internalFieldRef()[i] = newTve.internalField()[i];
+            }
+
+            // 3) Copy BOUNDARY values (raw)
+            forAll(Tve_.boundaryFieldRef(), patchi)
+            {
+                forAll(Tve_.boundaryFieldRef()[patchi], facei)
+                {
+                    Tve_.boundaryFieldRef()[patchi][facei] =
+                        newTve.boundaryField()[patchi][facei];
+                }
+            }
+
+            // 4) Enforce BC consistency
             Tve_.correctBoundaryConditions();
         }
     };

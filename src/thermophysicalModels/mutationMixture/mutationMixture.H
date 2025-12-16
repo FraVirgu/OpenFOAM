@@ -58,7 +58,7 @@ namespace Foam
 
         // --- Core Physics Function ---
         void setState(
-            const scalar p,
+            const scalar rho,
             const scalar T,
             const scalar Tve,
             const scalarField &Y) const;

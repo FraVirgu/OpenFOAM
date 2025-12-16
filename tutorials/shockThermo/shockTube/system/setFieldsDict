@@ -14,27 +14,31 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-defaultValues
-{
-    U       (0 0 0);
-    T       348.432;
-    p       100000;
-}
+// 1. Set the "Driver" Gas values everywhere (Left side conditions)
+defaultFieldValues
+(
+    volVectorFieldValue U (0 0 0)
+    volScalarFieldValue T 348.432
+    volScalarFieldValue Tve 348.432  
+    volScalarFieldValue p 100000
+);
 
-zones
-{
-    lowPressure
+regions
+(
+    // 2. Overwrite the "Driven" Gas values (Right side conditions)
+    boxToCell
     {
-        type        box;
-
-        box         (0 -1 -1) (5 1 1);
-
-        values
-        {
-            T       278.746;
-            p       10000;
-        }
+        // Box coordinates: (minX minY minZ) (maxX maxY maxZ)
+        // Matches your previous region (0 to 5)
+        box (0 -1 -1) (5 1 1);
+        
+        fieldValues
+        (
+            volScalarFieldValue T 278.746
+            volScalarFieldValue Tve 278.746 
+            volScalarFieldValue p 10000
+        );
     }
-}
+);
 
-// ************************************************************************* //
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
