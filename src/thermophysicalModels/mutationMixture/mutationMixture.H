@@ -79,6 +79,20 @@ namespace Foam
         // --- 2-Temperature Specific ---
         // Vibrational + electronic energy for species (mass basis J/kg)
         scalar speciesEve(const label speciei) const;
+
+        scalar getVibrationalSource() const;
+
+        scalar solveTve(
+            const scalar rho,
+            const scalar eve_target,
+            const scalarField &Y,
+            const scalar Tve_guess) const;
+
+        scalar solveT(
+            const scalar rho,
+            const scalar e_tr_target,
+            const scalarField &Y,
+            const scalar T_guess) const;
     };
 
 } // namespace Foam

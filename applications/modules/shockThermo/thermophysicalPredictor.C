@@ -138,7 +138,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
         // 'thermo_' is the standard OpenFOAM class (doesn't know about Tve).
         // 'heThermo_' is your custom wrapper (knows about Tve).
 
-        const volScalarField &Tve = heThermoPtr_->Tve();
+        volScalarField &Tve = heThermoPtr_->Tve();
 
         mutationMixture &mix = *mutationMixPtr_;
 
@@ -177,8 +177,8 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
             }
             eve[celli] = cellEve;
 
-            // Placeholder for source term
-            Qve[celli] = 0.0;
+            // Get Source Term [J/m^3/s]
+            Qve[celli] = mix.getVibrationalSource();
         }
 
         eve.correctBoundaryConditions();
@@ -194,6 +194,39 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
         EveEqn.relax();
         EveEqn.solve();
+
+        // --- 4. UPDATE TEMPERATURES (Inversion Step) ---
+        // We now have new Energy 'e' and new Vib-Energy 'eve'.
+        // We must find the T and Tve that match these energies.
+
+        forAll(T, celli)
+        {
+            for (label k = 0; k < Y.size(); ++k)
+                Y_cell[k] = Y[k][celli];
+
+            scalar e_total_new = thermo_.he()[celli];
+            scalar eve_new = eve[celli];
+
+            // A. Update Tve
+            scalar Tve_old = Tve[celli];
+            Tve[celli] = mix.solveTve(rho[celli], eve_new, Y_cell, Tve_old);
+
+            // B. Update T (Translational)
+            // e_trans_rot = e_total - e_vib
+            scalar e_tr_target = e_total_new - eve_new;
+            scalar T_old = thermo_.T()[celli];
+
+            // You need to implement solveT in mutationMixture or approximate it:
+            // thermo_.T()[celli] = mix.solveT(rho[celli], e_tr_target, Y_cell, T_old);
+
+            // Temporary Approx if solveT is missing:
+            // Cv_trans_rot approx 2.5 * R_mix for molecules
+            scalar Cv_approx = 2.5 * (8314.0 / mix.mixtureMw());
+            thermo_.T()[celli] = e_tr_target / Cv_approx;
+        }
+
+        Tve.correctBoundaryConditions();
+        thermo_.T().correctBoundaryConditions();
     }
 
     // FIX 3: Use 'heThermo_->correct()' to ensure T and Tve are updated together
