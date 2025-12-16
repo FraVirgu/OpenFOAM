@@ -29,7 +29,7 @@ Description
 
     Solver module for EXPLICIT density-based solution of compressible REACTIVE
     flows with specie transport.
-   
+
 SourceFiles
     shockThermo.C
 
@@ -37,7 +37,7 @@ Author:
     Federico Piscaglia
     Dept. of Aerospace Science and Technology (DAER)
     Politecnico di Milano
-    
+
 
 \*---------------------------------------------------------------------------*/
 
@@ -49,143 +49,128 @@ Author:
 #include "combustionModel.H"
 #include "fluidMulticomponentThermophysicalTransportModel.H"
 #include "multivariateScheme.H"
-
+#include "mutationMixture.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-namespace solvers
-{
+    namespace solvers
+    {
 
-/*---------------------------------------------------------------------------*\
-                          Class shockThermo Declaration
-\*---------------------------------------------------------------------------*/
+        /*---------------------------------------------------------------------------*\
+                                  Class shockThermo Declaration
+        \*---------------------------------------------------------------------------*/
 
-class shockThermo
-:
-    public shockFluid
-{
-
-private:
-
-    // Thermophysical properties
-
-        fluidMulticomponentThermo& thermo_;
-
-    // Composition
-
-        PtrList<volScalarField>& Y_;
-
-    // Reactions
-
-        autoPtr<combustionModel> reaction;
-        
-        multivariateSurfaceInterpolationScheme<scalar>::fieldTable fields;
-
-    // Thermophysical transport
-
-        autoPtr<fluidMulticomponentThermophysicalTransportModel>
-            thermophysicalTransport;
-
-    // Private Member Functions
-
-        //- Interpolate field vf according to direction dir
-        template<class Type>
-        inline tmp<SurfaceField<Type>> interpolate
-        (
-            const VolField<Type>& vf,
-            const surfaceScalarField& dir,
-            const word& reconFieldName = word::null
-        )
+        class shockThermo
+            : public shockFluid
         {
-            tmp<SurfaceField<Type>> tsf
-            (
-                fvc::interpolate
-                (
-                    vf,
-                    dir,
-                    "reconstruct("
-                  + (reconFieldName != word::null ? reconFieldName : vf.name())
-                  + ')'
-                )
-            );
 
-            SurfaceField<Type>& sf = tsf.ref();
+        private:
+            // Thermophysical properties
 
-            sf.rename(vf.name() + '_' + dir.name());
+            fluidMulticomponentThermo &thermo_;
 
-            return tsf;
-        }
+            // Composition
 
-        //- Set rDeltaT for LTS
-        void setRDeltaT(const surfaceScalarField& amaxSf);
- 
-public:
+            PtrList<volScalarField> &Y_;
 
-    // Public Data
+            // Reactions
 
-        //- Reference to the fluid thermophysical properties
-        const fluidMulticomponentThermo& thermo;
+            autoPtr<combustionModel> reaction;
 
-        //- Reference to the composition
-        const PtrList<volScalarField>& Y;
+            multivariateSurfaceInterpolationScheme<scalar>::fieldTable fields;
 
- 
-    //- Runtime type information
-        TypeName("shockThermo");
+            // Thermophysical transport
 
-    // Constructors
+            autoPtr<fluidMulticomponentThermophysicalTransportModel>
+                thermophysicalTransport;
 
-        //- Construct from region mesh
-        shockThermo(fvMesh& mesh);
+            // Private Member Functions
 
-        //- Disallow default bitwise copy construction
-        shockThermo(const shockThermo&) = delete;
+            //- Interpolate field vf according to direction dir
+            template <class Type>
+            inline tmp<SurfaceField<Type>> interpolate(
+                const VolField<Type> &vf,
+                const surfaceScalarField &dir,
+                const word &reconFieldName = word::null)
+            {
+                tmp<SurfaceField<Type>> tsf(
+                    fvc::interpolate(
+                        vf,
+                        dir,
+                        "reconstruct(" + (reconFieldName != word::null ? reconFieldName : vf.name()) + ')'));
 
-    //- Destructor
-        virtual ~shockThermo();
+                SurfaceField<Type> &sf = tsf.ref();
 
+                sf.rename(vf.name() + '_' + dir.name());
 
-    // Member Functions
+                return tsf;
+            }
 
-        //- Called at the start of the time-step, before the PIMPLE loop
-        virtual void preSolve();
+            //- Set rDeltaT for LTS
+            void setRDeltaT(const surfaceScalarField &amaxSf);
 
-        // //- Called at the start of the PIMPLE loop to move the mesh
-        // virtual void moveMesh();
+        public:
+            // Public Data
 
-        // //- Called at the start of the PIMPLE loop
-        // virtual void prePredictor();
+            //- Reference to the fluid thermophysical properties
+            const fluidMulticomponentThermo &thermo;
 
-        // //- Construct and optionally solve the momentum equation
-        // virtual void momentumPredictor();
+            //- Reference to the composition
+            const PtrList<volScalarField> &Y;
 
-        //- Construct and solve the energy equation,
-        //  convert to temperature
-        //  and update thermophysical and transport properties
-        virtual void thermophysicalPredictor();
+            //- Runtime type information
+            TypeName("shockThermo");
 
-        // //- Construct and solve the pressure equation in the PISO loop
-        // virtual void pressureCorrector();
+            // Constructors
 
-        // //- Correct the momentum and thermophysical transport modelling
-        // virtual void postCorrector();
+            //- Construct from region mesh
+            shockThermo(fvMesh &mesh);
 
-        // //- Called after the PIMPLE loop at the end of the time-step
-        // virtual void postSolve();
+            //- Disallow default bitwise copy construction
+            shockThermo(const shockThermo &) = delete;
 
+            //- Destructor
+            virtual ~shockThermo();
 
-    // Member Operators
+            // Member Functions
 
-        //- Disallow default bitwise assignment
-        void operator=(const shockThermo&) = delete;
-};
+            //- Called at the start of the time-step, before the PIMPLE loop
+            virtual void preSolve();
 
+            // //- Called at the start of the PIMPLE loop to move the mesh
+            // virtual void moveMesh();
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+            // //- Called at the start of the PIMPLE loop
+            // virtual void prePredictor();
 
-} // End namespace solvers
+            // //- Construct and optionally solve the momentum equation
+            // virtual void momentumPredictor();
+
+            //- Construct and solve the energy equation,
+            //  convert to temperature
+            //  and update thermophysical and transport properties
+            virtual void thermophysicalPredictor();
+
+            // //- Construct and solve the pressure equation in the PISO loop
+            // virtual void pressureCorrector();
+
+            // //- Correct the momentum and thermophysical transport modelling
+            // virtual void postCorrector();
+
+            // //- Called after the PIMPLE loop at the end of the time-step
+            // virtual void postSolve();
+
+            // Member Operators
+
+            //- Disallow default bitwise assignment
+            void operator=(const shockThermo &) = delete;
+        };
+
+        // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+    } // End namespace solvers
 } // End namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
