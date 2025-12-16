@@ -35,6 +35,10 @@ License
 
 #include "psiThermo.H"
 
+#include "fvmLaplacian.H"
+
+#include "highEnthalpyMulticomponentThermo.H"
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
