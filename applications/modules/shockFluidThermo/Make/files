@@ -1,9 +1,0 @@
-thermophysicalPredictor.C
-shockFluidThermo.C
-
-derivedFvPatchFields/mixedFixedValueSlip/mixedFixedValueSlipFvPatchFields.C
-derivedFvPatchFields/U/maxwellSlipUFvPatchVectorField.C
-derivedFvPatchFields/T/smoluchowskiJumpTFvPatchScalarField.C
-derivedFvPatchFields/rho/fixedRhoFvPatchScalarField.C
-
-LIB = $(FOAM_LIBBIN)/libshockFluidThermo

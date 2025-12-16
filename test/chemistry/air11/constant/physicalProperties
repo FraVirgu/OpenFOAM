@@ -16,10 +16,10 @@ FoamFile
 
 thermoType
 {
-    type            hePsiThermo;
-    mixture         coefficientWilkeMulticomponentMixture;
-    transport       sutherland; //guptaYos;
-    thermo          rrho; //janaf;
+    type            fluidMulticomponentThermo;
+    mixture         reactingMixture;
+    transport       sutherland;
+    thermo          janaf;
     energy          sensibleEnthalpy;
     equationOfState perfectGas;
     specie          specie;

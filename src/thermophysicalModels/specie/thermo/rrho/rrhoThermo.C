@@ -28,7 +28,30 @@ License
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
- 
+template<class EquationOfState>
+void Foam::rrhoThermo<EquationOfState>::checkInputData() const
+{
+    if (Tlow_ >= Thigh_)
+    {
+        FatalErrorInFunction
+            << "Tlow(" << Tlow_ << ") >= Thigh(" << Thigh_ << ')'
+            << exit(FatalError);
+    }
+
+    if (Tcommon_ <= Tlow_)
+    {
+        FatalErrorInFunction
+            << "Tcommon(" << Tcommon_ << ") <= Tlow(" << Tlow_ << ')'
+            << exit(FatalError);
+    }
+
+    if (Tcommon_ > Thigh_)
+    {
+        FatalErrorInFunction
+            << "Tcommon(" << Tcommon_ << ") > Thigh(" << Thigh_ << ')'
+            << exit(FatalError);
+    }
+}
 
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -40,18 +63,63 @@ Foam::rrhoThermo<EquationOfState>::rrhoThermo
     const dictionary& dict
 )
 :
-janafThermo<EquationOfState>(name, dict)
+    EquationOfState(name, dict),
+    Tlow_(dict.subDict("thermodynamics").lookup<scalar>("Tlow")),
+    Thigh_(dict.subDict("thermodynamics").lookup<scalar>("Thigh")),
+    Tcommon_(dict.subDict("thermodynamics").lookup<scalar>("Tcommon")),
+    highCpCoeffs_(dict.subDict("thermodynamics").lookup("highCpCoeffs")),
+    lowCpCoeffs_(dict.subDict("thermodynamics").lookup("lowCpCoeffs"))
 {
- 
+    // Convert coefficients to mass-basis
+    for (label coefLabel=0; coefLabel<nCoeffs_; coefLabel++)
+    {
+        highCpCoeffs_[coefLabel] *= this->R();
+        lowCpCoeffs_[coefLabel] *= this->R();
+    }
+
+    checkInputData();
+
 }
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
- 
+template<class EquationOfState>
+void Foam::rrhoThermo<EquationOfState>::write(Ostream& os) const
+{
+    EquationOfState::write(os);
+
+    // Convert coefficients back to dimensionless form
+    coeffArray highCpCoeffs;
+    coeffArray lowCpCoeffs;
+    for (label coefLabel=0; coefLabel<nCoeffs_; coefLabel++)
+    {
+        highCpCoeffs[coefLabel] = highCpCoeffs_[coefLabel]/this->R();
+        lowCpCoeffs[coefLabel] = lowCpCoeffs_[coefLabel]/this->R();
+    }
+
+    dictionary dict("thermodynamics");
+    dict.add("Tlow", Tlow_);
+    dict.add("Thigh", Thigh_);
+    dict.add("Tcommon", Tcommon_);
+    dict.add("highCpCoeffs", highCpCoeffs);
+    dict.add("lowCpCoeffs", lowCpCoeffs);
+    os  << indent << dict.dictName() << dict;
+}
+
 
 // * * * * * * * * * * * * * * * Ostream Operator  * * * * * * * * * * * * * //
 
+template<class EquationOfState>
+Foam::Ostream& Foam::operator<<
+(
+    Ostream& os,
+    const rrhoThermo<EquationOfState>& jt
+)
+{
+    jt.write(os);
+    return os;
+}
 
 
 // ************************************************************************* //

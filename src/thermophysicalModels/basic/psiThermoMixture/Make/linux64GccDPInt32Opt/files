@@ -1,3 +1,0 @@
-SOURCE += psiThermos.C
-
-LIB = $(FOAM_USER_LIBBIN)/libpsiThermoMixture

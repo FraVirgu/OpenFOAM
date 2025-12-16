@@ -22,16 +22,69 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::janafThermo
+    Foam::rrhoThermo
 
 Description
+    Enthalpy based thermodynamics package using rrho tables:
+
+    \verbatim
+        Cp/R = (((a4*T + a3)*T + a2)*T + a1)*T + a0
+        ha/R = ((((a4/5*T + a3/4)*T + a2/3)*T + a1/2)*T + a0)*T + a5
+    \endverbatim
+
+Usage
+    \table
+        Property     | Description
+        Tlow         | Lower temperature limit [K]
+        Thigh        | Upper temperature limit [K]
+        Tcommon      | Transition temperature from low to high polynomials [K]
+        lowCpCoeffs  | Low temperature range heat capacity coefficients
+        highCpCoeffs | High temperature range heat capacity coefficients
+    \endtable
+
+    Example specification of rrhoThermo for air:
+    \verbatim
+    thermodynamics
+    {
+        Tlow            100;
+        Thigh           10000;
+        Tcommon         1000;
+
+        lowCpCoeffs
+        (
+            3.5309628
+            -0.0001236595
+            -5.0299339e-07
+            2.4352768e-09
+            -1.4087954e-12
+            -1046.9637
+            2.9674391
+        );
+
+        highCpCoeffs
+        (
+            2.9525407
+            0.0013968838
+            -4.9262577e-07
+            7.8600091e-11
+            -4.6074978e-15
+            -923.93753
+            5.8718221
+        );
+    }
+    \endverbatim
+
+SourceFiles
+    rrhoThermoI.H
+    rrhoThermo.C
 
 \*---------------------------------------------------------------------------*/
 
 #ifndef rrhoThermo_H
 #define rrhoThermo_H
 
-#include "janafThermo.H"
+#include "scalar.H"
+#include "FixedList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -78,18 +131,44 @@ Ostream& operator<<
 template<class EquationOfState>
 class rrhoThermo
 :
-    public janafThermo<EquationOfState>
+    public EquationOfState
 {
 
 public:
+
+    // Public static data
+
+        //- Number of coefficients
+        static const int nCoeffs_ = 7;
+
+
+    // Public typdefs
+
+        //- Coefficient array type
+        typedef FixedList<scalar, nCoeffs_> coeffArray;
 
 
 private:
 
     // Private Data
 
-        //- Coefficient array type
-    typedef FixedList<scalar, janafThermo<EquationOfState>::nCoeffs_> coeffArray;
+        // Temperature limits of applicability of functions
+        scalar Tlow_, Thigh_, Tcommon_;
+
+        //- Cp coefficients for the high temperature range (Tcommon to Thigh)
+        coeffArray highCpCoeffs_;
+
+        //- Cp coefficients for the low temperature range (Tlow to Tcommon)
+        coeffArray lowCpCoeffs_;
+
+
+    // Private Member Functions
+
+        //- Check that input data is valid
+        void checkInputData() const;
+
+        //- Return the coefficients corresponding to the given temperature
+        inline const coeffArray& coeffs(const scalar T) const;
 
 
 public:
@@ -123,15 +202,96 @@ public:
             return "rrho<" + EquationOfState::typeName() + '>';
         }
 
+        //- Limit the temperature to be in the range Tlow_ to Thigh_
+        inline scalar limit(const scalar T) const;
+
+
         // Access
-  
+
+            //- Return const access to the low temperature limit
+            inline scalar Tlow() const;
+
+            //- Return const access to the high temperature limit
+            inline scalar Thigh() const;
+
+            //- Return const access to the common temperature
+            inline scalar Tcommon() const;
+
+            //- Return const access to the high temperature poly coefficients
+            inline const coeffArray& highCpCoeffs() const;
+
+            //- Return const access to the low temperature poly coefficients
+            inline const coeffArray& lowCpCoeffs() const;
+
+
         // Fundamental properties
- 
+
             //- Heat capacity at constant pressure [J/kg/K]
-            inline scalar Cpve(const scalar p, const scalar T) const;
-    
-        //- Absolute enthalpy [J/kg]
-    
+            inline scalar Cp(const scalar p, const scalar T) const;
+
+            //- Absolute enthalpy [J/kg]
+            inline scalar ha(const scalar p, const scalar T) const;
+
+            //- Sensible enthalpy [J/kg]
+            inline scalar hs(const scalar p, const scalar T) const;
+
+            //- Enthalpy of formation [J/kg]
+            inline scalar hf() const;
+
+            //- Entropy [J/kg/K]
+            inline scalar s(const scalar p, const scalar T) const;
+
+            //- Gibbs free energy of the mixture in the standard state [J/kg]
+            inline scalar gStd(const scalar T) const;
+
+            #include "HtoEthermo.H"
+
+
+        // Derivative term used for Jacobian
+
+            //- Temperature derivative of heat capacity at constant pressure
+            inline scalar dCpdT(const scalar p, const scalar T) const;
+
+
+        // I-O
+
+            //- Write to Ostream
+            void write(Ostream& os) const;
+
+
+    // Member Operators
+
+        inline void operator+=(const rrhoThermo&);
+
+
+    // Friend operators
+
+        friend rrhoThermo operator+ <EquationOfState>
+        (
+            const rrhoThermo&,
+            const rrhoThermo&
+        );
+
+        friend rrhoThermo operator* <EquationOfState>
+        (
+            const scalar,
+            const rrhoThermo&
+        );
+
+        friend rrhoThermo operator== <EquationOfState>
+        (
+            const rrhoThermo&,
+            const rrhoThermo&
+        );
+
+
+    // Ostream Operator
+
+        friend Ostream& operator<< <EquationOfState>
+        (
+            Ostream&,
+            const rrhoThermo&
+        );
 };
 
 

@@ -26,4 +26,24 @@ solvers
 }
 
 
+// -------------------------------------------------------------------------
+// ADD THIS BLOCK TO FIX THE ERROR
+// -------------------------------------------------------------------------
+PIMPLE
+{
+    momentumPredictor   no;
+    nOuterCorrectors    1;
+    nCorrectors         1;
+    nNonOrthogonalCorrectors 0;
+}
+
+relaxationFactors
+{
+    equations
+    {
+        ".*" 1;
+    }
+}
+
+
 // ************************************************************************* //

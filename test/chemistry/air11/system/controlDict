@@ -14,7 +14,11 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     chemFoam;
+// 1. Use the generic solver runner
+application     foamRun;
+
+// 2. Tell foamRun which solver logic to use (defined in your library)
+solver          shockThermo;
 
 startFrom       startTime;
 
@@ -48,7 +52,22 @@ timePrecision   6;
 
 runTimeModifiable yes;
 
-libs ("/academia/TESI/templateTesista/OpenFOAM/test/chemistry/air11/dynamicCode/platforms/linux64GccDPInt32Opt/lib/libode_Park2T_guptaYos_janaf_perfectGas_specie___sensibleEnthalpy____3b52744371583f756d48d24ed39f687aa9a77ef3.so" "libguptaDAER.so" "libfede.so" "/academia/TESI/templateTesista/OpenFOAM/test/chemistry/air11/dynamicCode/platforms/linux64GccDPInt32Opt/lib/libode_Park2T_guptaYos_janaf_perfectGas_specie___sensibleEnthalpy____3b52744371583f756d48d24ed39f687aa9a77ef3.so");
+libs
+(
+    // Standard Thermo (Safety)
+    "libfluidThermophysicalModels.so"
+
+    // Your Mutation Interface
+    "libmutationMixture.so"
+
+    // Your Wrapper (Name matches your Make/files: libhighEnthalpyThermophysicalModels)
+    "libhighEnthalpyThermophysicalModels.so" 
+
+    // Your Solver
+    "libshockThermo.so"
+);
+
+
 DebugSwitches
 {
     SolverPerformance   0;

@@ -1,2 +1,4 @@
 SOURCE += highEnthalpyMulticomponentThermo/highEnthalpyMulticomponentThermo.C
+SOURCE += highEnthalpyMulticomponentThermo/highEnthalpyMulticomponentThermos.C
+
 LIB = $(FOAM_USER_LIBBIN)/libhighEnthalpyThermophysicalModels

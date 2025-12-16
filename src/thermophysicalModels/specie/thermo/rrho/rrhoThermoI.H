@@ -23,12 +23,28 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "janafThermo.H"
+#include "rrhoThermo.H"
 #include "specie.H"
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
- 
+template<class EquationOfState>
+inline const typename Foam::rrhoThermo<EquationOfState>::coeffArray&
+Foam::rrhoThermo<EquationOfState>::coeffs
+(
+    const scalar T
+) const
+{
+    if (T < Tcommon_)
+    {
+        return lowCpCoeffs_;
+    }
+    else
+    {
+        return highCpCoeffs_;
+    }
+}
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -44,9 +60,27 @@ inline Foam::rrhoThermo<EquationOfState>::rrhoThermo
     const bool convertCoeffs
 )
 :
-janafThermo<EquationOfState>(st,Tlow,Thigh,Tcommon,highCpCoeffs,lowCpCoeffs,convertCoeffs)
+    EquationOfState(st),
+    Tlow_(Tlow),
+    Thigh_(Thigh),
+    Tcommon_(Tcommon)
 {
-
+    if (convertCoeffs)
+    {
+        for (label coefLabel=0; coefLabel<nCoeffs_; coefLabel++)
+        {
+            highCpCoeffs_[coefLabel] = highCpCoeffs[coefLabel]*this->R();
+            lowCpCoeffs_[coefLabel] = lowCpCoeffs[coefLabel]*this->R();
+        }
+    }
+    else
+    {
+        for (label coefLabel=0; coefLabel<nCoeffs_; coefLabel++)
+        {
+            highCpCoeffs_[coefLabel] = highCpCoeffs[coefLabel];
+            lowCpCoeffs_[coefLabel] = lowCpCoeffs[coefLabel];
+        }
+    }
 }
 
 
@@ -57,31 +91,389 @@ inline Foam::rrhoThermo<EquationOfState>::rrhoThermo
     const rrhoThermo& jt
 )
 :
-    janafThermo<EquationOfState>(name, jt)
-{}
+    EquationOfState(name, jt),
+    Tlow_(jt.Tlow_),
+    Thigh_(jt.Thigh_),
+    Tcommon_(jt.Tcommon_)
+{
+    for (label coefLabel=0; coefLabel<nCoeffs_; coefLabel++)
+    {
+        highCpCoeffs_[coefLabel] = jt.highCpCoeffs_[coefLabel];
+        lowCpCoeffs_[coefLabel] = jt.lowCpCoeffs_[coefLabel];
+    }
+}
+
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::limit
+(
+    const scalar T
+) const
+{
+    if (T < Tlow_ || T > Thigh_)
+    {
+        WarningInFunction
+            << "attempt to use rrhoThermo<EquationOfState>"
+               " out of temperature range "
+            << Tlow_ << " -> " << Thigh_ << ";  T = " << T
+            << endl;
+
+        return min(max(T, Tlow_), Thigh_);
+    }
+    else
+    {
+        return T;
+    }
+}
+
 
 template<class EquationOfState>
-inline Foam::scalar Foam::rrhoThermo<EquationOfState>::Cpve
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::Tlow() const
+{
+    return Tlow_;
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::Thigh() const
+{
+    return Thigh_;
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::Tcommon() const
+{
+    return Tcommon_;
+}
+
+
+template<class EquationOfState>
+inline const typename Foam::rrhoThermo<EquationOfState>::coeffArray&
+Foam::rrhoThermo<EquationOfState>::highCpCoeffs() const
+{
+    return highCpCoeffs_;
+}
+
+
+template<class EquationOfState>
+inline const typename Foam::rrhoThermo<EquationOfState>::coeffArray&
+Foam::rrhoThermo<EquationOfState>::lowCpCoeffs() const
+{
+    return lowCpCoeffs_;
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::Cp
 (
     const scalar p,
     const scalar T
 ) const
 {
-    Info<< "This is Cp vibro-electronic" << endl;
-    return this->Cp(p,T);
+    const coeffArray& a = coeffs(T);
+    return
+        ((((a[4]*T + a[3])*T + a[2])*T + a[1])*T + a[0])
+      + EquationOfState::Cp(p, T);
 }
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::hs
+(
+    const scalar p,
+    const scalar T
+) const
+{
+    return ha(p, T) - hf();
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::ha
+(
+    const scalar p,
+    const scalar T
+) const
+{
+    const coeffArray& a = coeffs(T);
+    return
+    (
+        ((((a[4]/5.0*T + a[3]/4.0)*T + a[2]/3.0)*T + a[1]/2.0)*T + a[0])*T
+      + a[5]
+    ) + EquationOfState::h(p, T);
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::hf() const
+{
+    const coeffArray& a = lowCpCoeffs_;
+    return
+    (
+        (
+            (((a[4]/5.0*Tstd + a[3]/4.0)*Tstd + a[2]/3.0)*Tstd + a[1]/2.0)*Tstd
+          + a[0]
+        )*Tstd + a[5]
+    );
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::s
+(
+    const scalar p,
+    const scalar T
+) const
+{
+    const coeffArray& a = coeffs(T);
+    return
+    (
+        (((a[4]/4.0*T + a[3]/3.0)*T + a[2]/2.0)*T + a[1])*T + a[0]*log(T)
+      + a[6]
+    ) + EquationOfState::sp(p, T);
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::gStd
+(
+    const scalar T
+) const
+{
+    const coeffArray& a = coeffs(T);
+    return
+    (
+        (
+            a[0]*(1 - log(T))
+          - (((a[4]/20.0*T + a[3]/12.0)*T + a[2]/6.0)*T + a[1]/2.0)*T
+          - a[6]
+        )*T
+      + a[5]
+    );
+}
+
+
+template<class EquationOfState>
+inline Foam::scalar Foam::rrhoThermo<EquationOfState>::dCpdT
+(
+    const scalar p,
+    const scalar T
+) const
+{
+    const coeffArray& a = coeffs(T);
+    return (((4*a[4]*T + 3*a[3])*T + 2*a[2])*T + a[1]);
+}
+
 
 // * * * * * * * * * * * * * * * Member Operators  * * * * * * * * * * * * * //
 
+template<class EquationOfState>
+inline void Foam::rrhoThermo<EquationOfState>::operator+=
+(
+    const rrhoThermo<EquationOfState>& jt
+)
+{
+    scalar Y1 = this->Y();
 
+    EquationOfState::operator+=(jt);
 
+    if (mag(this->Y()) > small)
+    {
+        Y1 /= this->Y();
+        const scalar Y2 = jt.Y()/this->Y();
 
+        Tlow_ = max(Tlow_, jt.Tlow_);
+        Thigh_ = min(Thigh_, jt.Thigh_);
+
+        if
+        (
+            rrhoThermo<EquationOfState>::debug
+         && notEqual(Tcommon_, jt.Tcommon_)
+        )
+        {
+            FatalErrorInFunction
+                << "Tcommon " << Tcommon_ << " for "
+                << (this->name().size() ? this->name() : "others")
+                << " != " << jt.Tcommon_ << " for "
+                << (jt.name().size() ? jt.name() : "others")
+                << exit(FatalError);
+        }
+
+        for
+        (
+            label coefLabel=0;
+            coefLabel<rrhoThermo<EquationOfState>::nCoeffs_;
+            coefLabel++
+        )
+        {
+            highCpCoeffs_[coefLabel] =
+                Y1*highCpCoeffs_[coefLabel]
+              + Y2*jt.highCpCoeffs_[coefLabel];
+
+            lowCpCoeffs_[coefLabel] =
+                Y1*lowCpCoeffs_[coefLabel]
+              + Y2*jt.lowCpCoeffs_[coefLabel];
+        }
+    }
+}
 
 
 // * * * * * * * * * * * * * * * Friend Operators  * * * * * * * * * * * * * //
-  
+
+template<class EquationOfState>
+inline Foam::rrhoThermo<EquationOfState> Foam::operator+
+(
+    const rrhoThermo<EquationOfState>& jt1,
+    const rrhoThermo<EquationOfState>& jt2
+)
+{
+    EquationOfState eofs = jt1;
+    eofs += jt2;
+
+    if (mag(eofs.Y()) < small)
+    {
+        return rrhoThermo<EquationOfState>
+        (
+            eofs,
+            jt1.Tlow_,
+            jt1.Thigh_,
+            jt1.Tcommon_,
+            jt1.highCpCoeffs_,
+            jt1.lowCpCoeffs_
+        );
+    }
+    else
+    {
+        const scalar Y1 = jt1.Y()/eofs.Y();
+        const scalar Y2 = jt2.Y()/eofs.Y();
+
+        typename rrhoThermo<EquationOfState>::coeffArray highCpCoeffs;
+        typename rrhoThermo<EquationOfState>::coeffArray lowCpCoeffs;
+
+        for
+        (
+            label coefLabel=0;
+            coefLabel<rrhoThermo<EquationOfState>::nCoeffs_;
+            coefLabel++
+        )
+        {
+            highCpCoeffs[coefLabel] =
+                Y1*jt1.highCpCoeffs_[coefLabel]
+              + Y2*jt2.highCpCoeffs_[coefLabel];
+
+            lowCpCoeffs[coefLabel] =
+                Y1*jt1.lowCpCoeffs_[coefLabel]
+              + Y2*jt2.lowCpCoeffs_[coefLabel];
+        }
+
+        if
+        (
+            rrhoThermo<EquationOfState>::debug
+         && notEqual(jt1.Tcommon_, jt2.Tcommon_)
+        )
+        {
+            FatalErrorInFunction
+                << "Tcommon " << jt1.Tcommon_ << " for "
+                << (jt1.name().size() ? jt1.name() : "others")
+                << " != " << jt2.Tcommon_ << " for "
+                << (jt2.name().size() ? jt2.name() : "others")
+                << exit(FatalError);
+        }
+
+        return rrhoThermo<EquationOfState>
+        (
+            eofs,
+            max(jt1.Tlow_, jt2.Tlow_),
+            min(jt1.Thigh_, jt2.Thigh_),
+            jt1.Tcommon_,
+            highCpCoeffs,
+            lowCpCoeffs
+        );
+    }
+}
+
+
+template<class EquationOfState>
+inline Foam::rrhoThermo<EquationOfState> Foam::operator*
+(
+    const scalar s,
+    const rrhoThermo<EquationOfState>& jt
+)
+{
+    return rrhoThermo<EquationOfState>
+    (
+        s*static_cast<const EquationOfState&>(jt),
+        jt.Tlow_,
+        jt.Thigh_,
+        jt.Tcommon_,
+        jt.highCpCoeffs_,
+        jt.lowCpCoeffs_
+    );
+}
+
+
+template<class EquationOfState>
+inline Foam::rrhoThermo<EquationOfState> Foam::operator==
+(
+    const rrhoThermo<EquationOfState>& jt1,
+    const rrhoThermo<EquationOfState>& jt2
+)
+{
+    EquationOfState eofs
+    (
+        static_cast<const EquationOfState&>(jt1)
+     == static_cast<const EquationOfState&>(jt2)
+    );
+
+    const scalar Y1 = jt2.Y()/eofs.Y();
+    const scalar Y2 = jt1.Y()/eofs.Y();
+
+    typename rrhoThermo<EquationOfState>::coeffArray highCpCoeffs;
+    typename rrhoThermo<EquationOfState>::coeffArray lowCpCoeffs;
+
+    for
+    (
+        label coefLabel=0;
+        coefLabel<rrhoThermo<EquationOfState>::nCoeffs_;
+        coefLabel++
+    )
+    {
+        highCpCoeffs[coefLabel] =
+            Y1*jt2.highCpCoeffs_[coefLabel]
+          - Y2*jt1.highCpCoeffs_[coefLabel];
+
+        lowCpCoeffs[coefLabel] =
+            Y1*jt2.lowCpCoeffs_[coefLabel]
+          - Y2*jt1.lowCpCoeffs_[coefLabel];
+    }
+
+    if
+    (
+        rrhoThermo<EquationOfState>::debug
+     && notEqual(jt2.Tcommon_, jt1.Tcommon_)
+    )
+    {
+        FatalErrorInFunction
+            << "Tcommon " << jt2.Tcommon_ << " for "
+            << (jt2.name().size() ? jt2.name() : "others")
+            << " != " << jt1.Tcommon_ << " for "
+            << (jt1.name().size() ? jt1.name() : "others")
+            << exit(FatalError);
+    }
+
+    return rrhoThermo<EquationOfState>
+    (
+        eofs,
+        max(jt2.Tlow_, jt1.Tlow_),
+        min(jt2.Thigh_, jt1.Thigh_),
+        jt2.Tcommon_,
+        highCpCoeffs,
+        lowCpCoeffs
+    );
+}
+
 
 // ************************************************************************* //

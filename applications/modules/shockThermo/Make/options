@@ -1,6 +1,5 @@
 EXE_INC = \
-    -I../shockFluidThermo/lnInclude \
-    -I$(FOAM_MODULES)/shockFluid/lnInclude \
+    -I$(POLIMI_MODULES)/shockFluid/lnInclude \
     -I$(FOAM_MODULES)/fluidSolver/lnInclude \
     -I$(FOAM_MODULES)/isothermalFluid/lnInclude \
     -I$(LIB_SRC)/ThermophysicalTransportModels/fluidThermo \
@@ -21,8 +20,7 @@ EXE_INC = \
     -I$(LIB_SRC)/finiteVolume/cfdTools \
     -I$(LIB_SRC)/finiteVolume/lnInclude \
     -I$(LIB_SRC)/meshTools/lnInclude \
-    -I$(LIB_SRC)/sampling/lnInclude \
-    -I$(POLIMI_SRC)/thermophysicalModels/multicomponentThermo/lnInclude 
+    -I$(LIB_SRC)/sampling/lnInclude
 
 
 LIB_LIBS = \
@@ -39,12 +37,9 @@ LIB_LIBS = \
     -lcoupledThermophysicalTransportModels \
     -lfluidMulticomponentThermophysicalTransportModels \
     -lfiniteVolume \
+    -lmeshTools \
     -lfvModels \
     -lfvConstraints \
-    -lmeshTools \
     -lsampling \
-    -lshockFluid \
-    -L$(FOAM_USER_LIBBIN) -lhighEnthalpyThermophysicalModels \
-    -lshockFluidThermo
-    
+    -L$(FOAM_USER_LIBBIN) -lshockFluid -lhighEnthalpyThermophysicalModels
 

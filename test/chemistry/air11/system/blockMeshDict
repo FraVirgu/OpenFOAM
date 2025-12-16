@@ -1,0 +1,80 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+convertToMeters 1;
+
+vertices
+(
+    (0 0 0)       // 0
+    (1 0 0)       // 1
+    (1 0.1 0)     // 2
+    (0 0.1 0)     // 3
+    (0 0 0.1)     // 4
+    (1 0 0.1)     // 5
+    (1 0.1 0.1)   // 6
+    (0 0.1 0.1)   // 7
+);
+
+blocks
+(
+    // hex (vertex_indices) (cells_x cells_y cells_z) grading
+    hex (0 1 2 3 4 5 6 7) (1000 1 1) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    // The Left side of the tube (Inlet or Wall)
+    left
+    {
+        type patch;
+        faces
+        (
+            (0 4 7 3)
+        );
+    }
+
+    // The Right side of the tube (Outlet or Wall)
+    right
+    {
+        type patch;
+        faces
+        (
+            (1 2 6 5)
+        );
+    }
+
+    // The "Sides" are empty to force a 1D simulation
+    sides
+    {
+        type empty;
+        faces
+        (
+            (0 1 5 4) // Front
+            (2 3 7 6) // Back
+            (0 3 2 1) // Bottom
+            (4 5 6 7) // Top
+        );
+    }
+);
+
+mergePatchPairs
+(
+);
+
+// ************************************************************************* //

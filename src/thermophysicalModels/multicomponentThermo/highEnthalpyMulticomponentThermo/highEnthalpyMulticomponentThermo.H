@@ -1,69 +1,196 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Copyright (C) 2011-2023 OpenFOAM Foundation
+     \\/     M anipulation  |
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Class
+    Foam::highEnthalpyMulticomponentThermo
+
+Description
+    Class for multi-component high-enthalpy fluid thermodynamic properties
+    based on compressibility.
+
+See also
+    Foam::basicThermo
+
+SourceFiles
+    highEnthalpyMulticomponentThermo.C
+
+\*---------------------------------------------------------------------------*/
+
 #ifndef highEnthalpyMulticomponentThermo_H
 #define highEnthalpyMulticomponentThermo_H
 
+#include "HighEnthalpyMulticomponentThermo.H"
+#include "psiThermo.H"
 #include "fluidMulticomponentThermo.H"
-#include "mutationMixture.H"
-#include "volFields.H"
-#include "IOdictionary.H"
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
-    class highEnthalpyMulticomponentThermo
-    {
-    private:
-        // 1. Reference to the base thermo (fields, mesh)
-        // We use a Reference (&) because shockFluidThermo owns the object.
-        fluidMulticomponentThermo &wrappedThermo_;
 
-        // 2. Reference to the specific Mutation++ interface (physics)
-        mutationMixture &mutationMix_;
+/*---------------------------------------------------------------------------*\
+                      Class highEnthalpyMulticomponentThermo Declaration
+\*---------------------------------------------------------------------------*/
 
-        // 3. The Vibrational Temperature Field
+class highEnthalpyMulticomponentThermo
+:
+    virtual public psiThermo,
+    virtual public fluidMulticomponentThermo
+{
+public:
+
+    // Public Classes
+
+        //- Forward declare the composite class
+        class composite;
+
+
+    // Public Typedefs
+
+        //- The derived type
+        template<class MixtureType>
+        using DerivedThermoType =
+            HighEnthalpyMulticomponentThermo
+            <
+                MulticomponentThermo
+                <
+                    PsiThermo
+                    <
+                        BasicThermo<MixtureType, composite>
+                    >
+                >
+            >;
+
+
+    //- Runtime type information
+    TypeName("highEnthalpyMulticomponentThermo");
+
+
+    //- Declare run-time constructor selection tables
+    declareRunTimeSelectionTable
+    (
+        autoPtr,
+        highEnthalpyMulticomponentThermo,
+        fvMesh,
+        (const fvMesh& mesh, const word& phaseName),
+        (mesh, phaseName)
+    );
+
+
+    // Selectors
+
+        //- Standard selection based on fvMesh
+        static autoPtr<highEnthalpyMulticomponentThermo> New
+        (
+            const fvMesh&,
+            const word& phaseName=word::null
+        );
+
+        //- The derived name
+        static word derivedThermoName()
+        {
+            return "highEnthalpyThermo";
+        };
+
+    //- Destructor
+    virtual ~highEnthalpyMulticomponentThermo();
+
+
+};
+
+
+/*---------------------------------------------------------------------------*\
+                Class highEnthalpyMulticomponentThermo::composite Declaration
+\*---------------------------------------------------------------------------*/
+
+class highEnthalpyMulticomponentThermo::composite
+:
+    public basicThermo::implementation,
+    public fluidThermo::implementation,
+    public psiThermo::implementation,
+    public multicomponentThermo::implementation,
+    public highEnthalpyMulticomponentThermo
+{
+
+private:
+
         volScalarField Tve_;
 
-        // Helper function
-        scalar readEnthalpyCorrection() const;
+public:
 
-    public:
-        // Define TypeName for debug switches
-        ClassName("highEnthalpyMulticomponentThermo");
+    // Constructors
 
-        // Constructor: Takes BOTH the thermo and the mutation mixture
-        highEnthalpyMulticomponentThermo(
-            fluidMulticomponentThermo &wrapped,
-            mutationMixture &mix);
+        //- Construct from dictionary, mesh and phase name
+        template<class MixtureType>
+        composite
+        (
+            const dictionary& dict,
+            const MixtureType& mixture,
+            const fvMesh& mesh,
+            const word& phaseName
+        )
+        :
+            basicThermo::implementation(dict, mesh, phaseName),
+            fluidThermo::implementation(dict, mesh, phaseName),
+            psiThermo::implementation(dict, mesh, phaseName),
+            multicomponentThermo::implementation
+            (
+                dict,
+                mixture.specieNames(),
+                mesh,
+                phaseName
+            ),
+            Tve_
+            (
+                IOobject
+                (
+                    "Tve",
+                    mesh.time().name(),
+                    mesh,
+                    IOobject::MUST_READ,
+                    IOobject::AUTO_WRITE
+                ),
+                mesh
+            )
+        {
 
-        // Destructor
-        ~highEnthalpyMulticomponentThermo() = default;
+            Info<< "highEnthalpyMulticomponentThermo::composite - "
+                << "constructor"
+                << endl;
+        }
+};
 
-        // Accessors
-        fluidMulticomponentThermo &wrappedThermo() { return wrappedThermo_; }
-        mutationMixture &mutation() { return mutationMix_; }
 
-        // Field Access / Forwarding
-        const volScalarField &T() const;
-        volScalarField &T();
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-        const volScalarField &p() const;
-        volScalarField &p();
 
-        const PtrList<volScalarField> &Y() const;
-        PtrList<volScalarField> &Y();
 
-        const volScalarField &Cp() const;
-        const volScalarField &Cv() const;
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-        // This accesses the Internal Energy field 'e' in shockThermo
-        const volScalarField &he() const;
-        volScalarField &he();
+} // End namespace Foam
 
-        // Accessor for the Vibrational Temperature
-        const volScalarField &Tve() const { return Tve_; }
-        volScalarField &Tve() { return Tve_; }
-
-        // The Magic Function: Updates Physics using T_tr AND T_ve
-        void correct();
-    };
-}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #endif
+
+// ************************************************************************* //

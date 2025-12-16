@@ -1,0 +1,18 @@
+shockFluid = $(FOAM_MODULES)/shockFluid
+
+SOURCE += $(shockFluid)/setRDeltaT.C
+SOURCE += $(shockFluid)/moveMesh.C
+SOURCE += $(shockFluid)/fluxPredictor.C
+SOURCE += $(shockFluid)/correctDensity.C
+SOURCE += $(shockFluid)/momentumPredictor.C
+SOURCE += $(shockFluid)/thermophysicalPredictor.C
+SOURCE += $(shockFluid)/pressureCorrector.C
+
+SOURCE += shockFluid.C
+
+SOURCE += $(shockFluid)/derivedFvPatchFields/mixedFixedValueSlip/mixedFixedValueSlipFvPatchFields.C
+SOURCE += $(shockFluid)/derivedFvPatchFields/U/maxwellSlipUFvPatchVectorField.C
+SOURCE += $(shockFluid)/derivedFvPatchFields/T/smoluchowskiJumpTFvPatchScalarField.C
+SOURCE += $(shockFluid)/derivedFvPatchFields/rho/fixedRhoFvPatchScalarField.C
+
+LIB = $(FOAM_USER_LIBBIN)/libshockFluid
