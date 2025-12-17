@@ -1,4 +1,6 @@
 $(OBJECTS_DIR)/Test-mutation++.C.dep: \
 Test-mutation++.C \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H \
 
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H :
 

@@ -1,11 +1,11 @@
-C++WARN += -Wno-unused-function \
-           -Wno-int-in-bool-context \
-           -Wno-ignored-qualifiers \
-           -Wno-sign-compare \
-           -Wno-misleading-indentation \
-           -Wno-unused-variable \
-           -Wno-unused-function \
-           -Wno-deprecated-copy
+C++WARN += \
+    -Wno-unused-function \
+    -Wno-unused-variable \
+    -Wno-int-in-bool-context \
+    -Wno-ignored-qualifiers \
+    -Wno-sign-compare \
+    -Wno-misleading-indentation \
+    -Wno-deprecated-copy
 
 EXE_INC = \
     -I$(FOAM_SRC)/OpenFOAM/lnInclude \
@@ -13,15 +13,15 @@ EXE_INC = \
     -I$(FOAM_SRC)/finiteVolume/lnInclude \
     -I$(FOAM_SRC)/thermophysicalModels/basic/lnInclude \
     -I$(FOAM_SRC)/thermophysicalModels/specie/lnInclude \
+    -I$(FOAM_SRC)/thermophysicalModels/lnInclude \
+    -I$(POLIMI_SRC)/thermophysicalModels/mutationMixture/lnInclude \
     -I$(MPP_DIRECTORY)/install/include/mutation++ \
-    -I$(MPP_EIGEN)/install/include/eigen3 \
-    -I$(MPP_DATA_DIRECTORY)/data/mechanisms \
-    -I$(MPP_DATA_DIRECTORY)/data/mixtures \
-    -I$(MPP_DATA_DIRECTORY)/data/thermo \
-    -I$(MPP_DATA_DIRECTORY)/data/transfer \
-    -I$(MPP_DATA_DIRECTORY)/data/transport \
-    -I$(POLIMI_SRC)/thermophysicalModels/lnInclude
+    -I$(MPP_EIGEN)/install/include/eigen3
 
 EXE_LIBS = \
+  -L$(FOAM_USER_LIBBIN) \
+    -lfiniteVolume \
     -lspecie \
+    -lOpenFOAM \
+    -lmutationMixture \
     -L$(MPP_DIRECTORY)/install/lib -lmutation++

@@ -7,7 +7,8 @@ In file included from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thi
                  from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/install/include/mutation++/Thermodynamics.h:39,
                  from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/install/include/mutation++/Mixture.h:33,
                  from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/install/include/mutation++/mutation++.h:31,
-                 from mutationMixture.C:19:
+                 from mutationMixture.H:4,
+                 from mutationMixture.C:1:
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/util/XprHelper.h:445:68: warning: use of old-style cast to 'int' [-Wold-style-cast]
   445 |   enum { diag_size = EIGEN_SIZE_MIN_PREFER_DYNAMIC(ExpressionType::RowsAtCompileTime, ExpressionType::ColsAtCompileTime),
       |                                                                    ^~~~~~~~~~~~~~~~~
@@ -2539,6 +2540,28 @@ In file included from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thi
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:57:41: warning: enum constant in boolean context [-Wint-in-bool-context]
    57 |     MaySliceVectorize  = MightVectorize && DstHasDirectAccess
       |                          ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h: In instantiation of 'struct Eigen::internal::assign_traits<Eigen::Matrix<double, -1, -1>, Eigen::Matrix<double, -1, -1> >':
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:506:116:   required from 'Derived& Eigen::DenseBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:414:30:   required from 'Derived& Eigen::PlainObjectBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:527:107:   required from 'static Derived& Eigen::internal::assign_selector<Derived, OtherDerived, false, false>::run(Derived&, const OtherDerived&) [with Derived = Eigen::Matrix<double, -1, -1>; OtherDerived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:653:72:   required from 'Derived& Eigen::PlainObjectBase<Derived>::_set_noalias(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Matrix.h:303:25:   required from 'Eigen::Matrix<_Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols>::Matrix(const Eigen::Matrix<_Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols>&) [with _Scalar = double; int _Rows = -1; int _Cols = -1; int _Options = 0; int _MaxRows = -1; int _MaxCols = -1]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/install/include/mutation++/Thermodynamics.h:79:7:   required from here
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:51:27: warning: enum constant in boolean context [-Wint-in-bool-context]
+   51 |                        && int(DstIsAligned) && int(SrcIsAligned),
+      |                           ^~~~~~~~~~~~~~~~~
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:51:48: warning: enum constant in boolean context [-Wint-in-bool-context]
+   51 |                        && int(DstIsAligned) && int(SrcIsAligned),
+      |                                                ^~~~~~~~~~~~~~~~~
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:53:57: warning: enum constant in boolean context [-Wint-in-bool-context]
+   53 |     MayLinearVectorize = MightVectorize && MayLinearize && DstHasDirectAccess
+      |                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:54:41: warning: enum constant in boolean context [-Wint-in-bool-context]
+   54 |                        && (DstIsAligned || MaxSizeAtCompileTime == Dynamic),
+      |                           ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:57:41: warning: enum constant in boolean context [-Wint-in-bool-context]
+   57 |     MaySliceVectorize  = MightVectorize && DstHasDirectAccess
+      |                          ~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h: In instantiation of 'struct Eigen::internal::assign_traits<Eigen::Matrix<double, -1, 1>, Eigen::Matrix<double, -1, 1> >':
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:506:116:   required from 'Derived& Eigen::DenseBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, 1>; Derived = Eigen::Matrix<double, -1, 1>]'
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:414:30:   required from 'Derived& Eigen::PlainObjectBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, 1>; Derived = Eigen::Matrix<double, -1, 1>]'
@@ -2574,6 +2597,14 @@ In file included from /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thi
       |                                                                  ~~~~~~~~~~~~~^~~
   403 |                              : internal::first_aligned(&dst.coeffRef(0), size);
       |                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h: In instantiation of 'static void Eigen::internal::assign_impl<Derived1, Derived2, 3, 0, Version>::run(Derived1&, const Derived2&) [with Derived1 = Eigen::Matrix<double, -1, -1>; Derived2 = Eigen::Matrix<double, -1, -1>; int Version = 0]':
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:507:85:   required from 'Derived& Eigen::DenseBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:414:30:   required from 'Derived& Eigen::PlainObjectBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:527:107:   required from 'static Derived& Eigen::internal::assign_selector<Derived, OtherDerived, false, false>::run(Derived&, const OtherDerived&) [with Derived = Eigen::Matrix<double, -1, -1>; OtherDerived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:653:72:   required from 'Derived& Eigen::PlainObjectBase<Derived>::_set_noalias(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, -1>; Derived = Eigen::Matrix<double, -1, -1>]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Matrix.h:303:25:   required from 'Eigen::Matrix<_Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols>::Matrix(const Eigen::Matrix<_Scalar, _Rows, _Cols, _Options, _MaxRows, _MaxCols>&) [with _Scalar = double; int _Rows = -1; int _Cols = -1; int _Options = 0; int _MaxRows = -1; int _MaxCols = -1]'
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/install/include/mutation++/Thermodynamics.h:79:7:   required from here
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:402:79: warning: enum constant in boolean context [-Wint-in-bool-context]
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h: In instantiation of 'static void Eigen::internal::assign_impl<Derived1, Derived2, 3, 0, Version>::run(Derived1&, const Derived2&) [with Derived1 = Eigen::Matrix<double, -1, 1>; Derived2 = Eigen::Matrix<double, -1, 1>; int Version = 0]':
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/Assign.h:507:85:   required from 'Derived& Eigen::DenseBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, 1>; Derived = Eigen::Matrix<double, -1, 1>]'
 /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/thirdParty/Mutationpp/thirdparty/eigen/install/include/eigen3/Eigen/src/Core/PlainObjectBase.h:414:30:   required from 'Derived& Eigen::PlainObjectBase<Derived>::lazyAssign(const Eigen::DenseBase<OtherDerived>&) [with OtherDerived = Eigen::Matrix<double, -1, 1>; Derived = Eigen::Matrix<double, -1, 1>]'

@@ -1,100 +1,76 @@
 #ifndef mutationMixture_H
 #define mutationMixture_H
 
-#include "dictionary.H"
-#include "fvMesh.H"
-#include "volFields.H"
-#include "speciesTable.H"
-
+#include <mutation++.h>
 #include <vector>
+#include <string>
 
-// Forward Declaration
-namespace Mutation
+// ------------------------------------------------------------
+// Paper vibrational data container
+// ------------------------------------------------------------
+struct VibData
 {
-    class Mixture;
-}
+    int speciesIndex; // index in Mutation++ mixture
+    double M;         // kg/mol
+    double theta_v;   // K
+};
 
-namespace Foam
+// ------------------------------------------------------------
+// mutationMixture: single-step 2T energy relaxation operator
+// ------------------------------------------------------------
+class mutationMixture
 {
+public:
+    // Constructor
+    explicit mutationMixture(const std::string &mechanism);
 
-    class mutationMixture
+    // Perform ONE time step
+    void step(
+        double dt,
+        double rho,
+        const std::vector<double> &Y,
+        double &Et,
+        double &Ev,
+        double &Ttr,
+        double &Tv);
+
+    // ---- pass-through accessors ----
+    int nSpecies() const
     {
-        // Private Data
-        const fvMesh &mesh_;
-        speciesTable species_;
-        PtrList<volScalarField> Y_;
+        return mix_.nSpecies();
+    }
 
-        Mutation::Mixture *mixture_;
-        word mechanismName_;
+    int speciesIndex(const std::string &name) const
+    {
+        return mix_.speciesIndex(name);
+    }
 
-        // Working arrays (using std::vector for memory safety)
-        mutable std::vector<double> Y_work_;
-        mutable std::vector<double> T_work_;
-        mutable std::vector<double> rho_work_;
-        mutable std::vector<double> Mw_work_;
-        mutable std::vector<double> E_work_;
-        mutable std::vector<double> H_RT_work_;
+    std::string speciesName(int i) const
+    {
+        return mix_.speciesName(i);
+    }
 
-    public:
-        TypeName("mutationMixture");
+    double speciesMw(int i) const
+    {
+        return mix_.speciesMw(i);
+    }
 
-        // Constructor
-        mutationMixture(
-            const dictionary &thermoDict,
-            const fvMesh &mesh,
-            const word &phaseName);
+private:
+    // Mutation++ mixture
+    Mutation::Mixture mix_;
 
-        // Destructor
-        virtual ~mutationMixture();
+    // Working buffers
+    std::vector<double> rho_i_;
+    std::vector<double> Tstate_;
 
-        // Accessors
-        const fvMesh &mesh() const { return mesh_; }
-        const speciesTable &species() const { return species_; }
-        const PtrList<volScalarField> &Y() const { return Y_; }
-        PtrList<volScalarField> &Y() { return Y_; }
+    // Paper vibrational species data
+    std::vector<VibData> vibData_;
 
-        // Return raw pointer if needed, though wrappers below are preferred
-        Mutation::Mixture &mixture() { return *mixture_; }
-
-        // --- Core Physics Function ---
-        void setState(
-            const scalar rho,
-            const scalar T,
-            const scalar Tve,
-            const scalarField &Y) const;
-
-        // --- Property Accessors ---
-        scalar H() const;
-        scalar Cp() const;
-        scalar mu() const;
-        scalar kappa() const;
-
-        // --- Helper Functions (Crucial for your Thermo wrapper) ---
-        // Return the mixture mean molecular weight [kg/mol]
-        scalar mixtureMw() const;
-
-        // Return the Universal Gas Constant [J/(mol K)]
-        scalar Ru() const;
-
-        // --- 2-Temperature Specific ---
-        // Vibrational + electronic energy for species (mass basis J/kg)
-        scalar speciesEve(const label speciei) const;
-
-        scalar getVibrationalSource() const;
-
-        scalar solveTve(
-            const scalar rho,
-            const scalar eve_target,
-            const scalarField &Y,
-            const scalar Tve_guess) const;
-
-        scalar solveT(
-            const scalar rho,
-            const scalar e_tr_target,
-            const scalarField &Y,
-            const scalar T_guess) const;
-    };
-
-} // namespace Foam
+    // Invert Ev -> Tv (Newton method, paper definition)
+    double invertTv(
+        double Ev_target,
+        double rho,
+        const std::vector<double> &Y) const;
+};
 
 #endif
