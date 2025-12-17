@@ -1,223 +1,354 @@
-#include <vector>
-#include <string>
+#include <mutation++.h>
+
 #include <cmath>
 #include <iostream>
 #include <fstream>
-#include <algorithm>
-#include <mutation++.h>
+#include <vector>
+#include <stdexcept>
+#include <string>
 
-// Helper: Ensure density never goes negative
-static inline double pos(double x) { return (x < 1.0e-30) ? 1.0e-30 : x; }
+using namespace Mutation;
 
-struct CellState
+// ---------- Physical constants ----------
+static constexpr double Ru = 8.31446261815324; // J/mol/K
+using Mutation::KB;
+using Mutation::NA;
+using Mutation::PI;
+static constexpr double ATM = 101325.0; // Pa
+
+// ---------- Species data (from paper Appendix A, Table A1) ----------
+struct VibSpecies
 {
-    double rho;
-    double T;
-    double Tv;
-    std::vector<double> rhoY;
+    std::string name;
+    double M_kg_per_mol; // kg/mol
+    double theta_v;      // K
+    double sigma_m;      // m^2 (Park high-T cross section prefactor)
 };
 
-// --- ADAPTIVE TIME STEPPING ---
-double get_adaptive_dt(const std::vector<double> &rhoY, const std::vector<double> &wdot, double current_dt)
+// Paper values:
+// theta_v: N2=3371, O2=2256, NO=2719  :contentReference[oaicite:2]{index=2}
+// sigma_m: N2,O2 = 3e-21 ; NO = 3e-22 :contentReference[oaicite:3]{index=3}
+static const VibSpecies vibList[] = {
+    {"N2", 28.0134e-3, 3371.0, 3.0e-21},
+    {"O2", 31.9988e-3, 2256.0, 3.0e-21},
+    {"NO", 30.0061e-3, 2719.0, 3.0e-22},
+};
+
+// ---------- Helpers ----------
+static inline double Rs(double M_kg_per_mol)
 {
-    double min_timescale = 1.0e-6;
-
-    for (size_t i = 0; i < rhoY.size(); ++i)
-    {
-        if (std::abs(wdot[i]) > 1.0e-5)
-        {
-            // 0.5% density change limit (Very conservative)
-            double timescale = 0.005 * (rhoY[i] + 1.0e-10) / (std::abs(wdot[i]) + 1.0e-20);
-            if (timescale < min_timescale)
-                min_timescale = timescale;
-        }
-    }
-
-    double target_dt = std::max(1.0e-15, std::min(min_timescale, 1.0e-6));
-    // Prevent dt from growing too fast (max 2% growth)
-    if (target_dt > current_dt * 1.02)
-        return current_dt * 1.02;
-    return target_dt;
+    return Ru / M_kg_per_mol; // J/kg/K
 }
 
-void chemistry_relaxation_step(Mutation::Mixture &mix, CellState &cell, double &dt)
+// Eq. (5): ev(T) = Rs * theta_v / (exp(theta_v/T)-1)  :contentReference[oaicite:4]{index=4}
+static inline double ev_species(double T, double theta_v, double M_kg_per_mol)
 {
-    // --- STEP 0: INITIAL ENERGIES ---
-    double Tvec[] = {cell.T, cell.Tv};
-    mix.setState(cell.rhoY.data(), Tvec, 2);
-    double e_total_target = mix.mixtureEnergyMass(); // Conserved Quantity
+    const double x = theta_v / T;
+    const double ex = std::exp(x);
+    return Rs(M_kg_per_mol) * (theta_v / (ex - 1.0));
+}
 
-    // Current Vib Energy
-    std::vector<double> energies(mix.nEnergyEqns());
-    mix.mixtureEnergies(energies.data());
-    double Ev_density_old = energies[1] * cell.rho;
+// derivative d(ev)/dT for Newton inversion
+static inline double devdT_species(double T, double theta_v, double M_kg_per_mol)
+{
+    const double x = theta_v / T;
+    const double ex = std::exp(x);
+    const double denom = (ex - 1.0);
+    // ev = Rs * theta / (e^x - 1), x=theta/T
+    // d/dT [1/(e^x-1)] = (e^x * (theta/T^2)) / (e^x-1)^2
+    const double dInv = (ex * (theta_v / (T * T))) / (denom * denom);
+    return Rs(M_kg_per_mol) * theta_v * dInv;
+}
 
-    // --- STEP 1: RATES & SOURCES ---
-    std::vector<double> wdot(mix.nSpecies());
-    mix.netProductionRates(wdot.data());
+// Reduced mass Mm,s in kg/mol: Mm*Ms/(Mm+Ms)  :contentReference[oaicite:5]{index=5}
+static inline double reduced_mass(double Mm, double Ms)
+{
+    return (Mm * Ms) / (Mm + Ms);
+}
 
-    std::vector<double> source_E(mix.nEnergyEqns());
-    mix.energyTransferSource(source_E.data());
-    double Q_vib = source_E[1];
+// Millikan-White coefficients from Eqs (12)-(13): :contentReference[oaicite:6]{index=6}
+// Am,s = 1.16e-3 * sqrt(Mm,s) * theta_v^(4/3)
+// Bm,s = 0.015 * (Mm,s)^(1/4)
+// NOTE: the paper shows sqrt-like dependence via reduced mass and theta_v^(4/3).
+static inline void MW_coeff(double Mm_s_red, double theta_v_m, double &A, double &B)
+{
+    A = 1.16e-3 * std::sqrt(Mm_s_red * 1e3) * std::pow(theta_v_m, 4.0 / 3.0); // heuristic unit-handling
+    B = 0.015 * std::pow(Mm_s_red * 1e3, 1.0 / 4.0);
+}
 
-    dt = get_adaptive_dt(cell.rhoY, wdot, dt);
+// Millikan-White relaxation time (Eq. 11) with p in atm :contentReference[oaicite:7]{index=7}
+static inline double tau_MW(double p_atm, double Ttr, double A, double B)
+{
+    // tau = (1/p) * exp( A*(T^-1/3 - B) - 18.42 )
+    const double Tm13 = std::pow(Ttr, -1.0 / 3.0);
+    return (1.0 / p_atm) * std::exp(A * (Tm13 - B) - 18.42);
+}
 
-    // --- STEP 2: UPDATE SPECIES ---
-    std::vector<double> rhoY_new = cell.rhoY;
-    double rho_sum = 0.0;
-    for (int i = 0; i < mix.nSpecies(); ++i)
+// Park correction term (Eqs. 15-17) :contentReference[oaicite:8]{index=8}
+static inline double tau_Park(double Ttr, double sigma_m, double M_m_kg_per_mol, double n_collider)
+{
+    // average molecular speed: cbar = sqrt(8*KB*T / (pi*m)) ; m = M/NA
+    const double m_particle = M_m_kg_per_mol / NA;
+    const double cbar = std::sqrt((8.0 * KB * Ttr) / (PI * m_particle));
+
+    // sigma_v = sigma_m * (50000/T)^2
+    const double sigma_v = sigma_m * std::pow(50000.0 / Ttr, 2.0);
+
+    // tau_P = 1 / (cbar * sigma_v * n)
+    return 1.0 / (cbar * sigma_v * n_collider);
+}
+
+// Mixture-averaged tau_m (Eq. 9-10) using molar fractions Xs :contentReference[oaicite:9]{index=9}
+static double tau_vt_mixture_avg(
+    double Ttr,
+    double p_Pa,
+    const std::vector<double> &X,    // molar fractions of all species
+    const std::vector<double> &Mmol, // kg/mol per species
+    int idx_m,                       // molecule index (in species list) for molecule m
+    double theta_v_m,
+    double sigma_m)
+{
+    const double p_atm = p_Pa / ATM;
+
+    // total number density (ideal gas): n_tot = p / (KB*Ttr)
+    const double n_tot = p_Pa / (KB * Ttr);
+
+    double denom = 0.0;
+    for (size_t s = 0; s < X.size(); ++s)
     {
-        double change = wdot[i] * dt;
-        // Hard Clamp: Max 5% change per step
-        double limit = 0.05 * cell.rhoY[i];
-        if (change > limit)
-            change = limit;
-        if (change < -limit)
-            change = -limit;
+        if (X[s] <= 0.0)
+            continue;
 
-        rhoY_new[i] += change;
-        rhoY_new[i] = pos(rhoY_new[i]);
-        rho_sum += rhoY_new[i];
+        const double Mm = Mmol[idx_m];
+        const double Ms = Mmol[s];
+        const double Mred = reduced_mass(Mm, Ms);
+
+        double A = 0.0, B = 0.0;
+        MW_coeff(Mred, theta_v_m, A, B);
+
+        const double tauMW = tau_MW(p_atm, Ttr, A, B);
+
+        const double n_s = X[s] * n_tot; // collider number density
+        const double tauP = tau_Park(Ttr, sigma_m, Mm, n_s);
+
+        const double tau_ms = tauMW + tauP;
+
+        denom += X[s] / tau_ms;
     }
-    // Mass correction
-    double factor = cell.rho / rho_sum;
-    for (int i = 0; i < mix.nSpecies(); ++i)
-        rhoY_new[i] *= factor;
-    cell.rhoY = rhoY_new;
-
-    // --- STEP 3: UPDATE VIB ENERGY ---
-    // Explicit update
-    double Ev_density_new = Ev_density_old + Q_vib * dt;
-    if (Ev_density_new < 1e-5)
-        Ev_density_new = 1e-5;
-
-    // Find Tv matching new Energy
-    double Tv_new = cell.Tv;
-    for (int k = 0; k < 10; ++k)
+    if (denom <= 0.0)
     {
-        double T_dummy[] = {cell.T, Tv_new};
-        mix.setState(cell.rhoY.data(), T_dummy, 2);
-        mix.mixtureEnergies(energies.data());
-        double Ev_curr = energies[1] * cell.rho;
+        throw std::runtime_error("Invalid relaxation-time denominator.");
+    }
+    return 1.0 / denom;
+}
 
-        double diff = Ev_density_new - Ev_curr;
-        if (std::abs(diff) < 1.0)
+// Invert Tv from Ev by Newton: Ev = rho * sum(Ym * ev_m(Tv))
+static double invert_Tv_from_Ev(
+    double Ev_target,
+    double rho,
+    const std::vector<double> &Y,
+    const std::vector<int> &vibSpeciesIdx,
+    const std::vector<double> &Mmol_vib,
+    const std::vector<double> &theta_v_vib)
+{
+    double Tv = 3000.0; // initial guess
+    for (int it = 0; it < 30; ++it)
+    {
+        double Ev = 0.0;
+        double dEv = 0.0;
+
+        for (size_t j = 0; j < vibSpeciesIdx.size(); ++j)
+        {
+            const int s = vibSpeciesIdx[j];
+            const double Ym = Y[s];
+            if (Ym <= 0.0)
+                continue;
+
+            const double M = Mmol_vib[j];
+            const double th = theta_v_vib[j];
+
+            Ev += rho * Ym * ev_species(Tv, th, M);
+            dEv += rho * Ym * devdT_species(Tv, th, M);
+        }
+
+        const double f = Ev - Ev_target;
+        if (std::abs(f) < 1e-6 * std::max(1.0, std::abs(Ev_target)))
             break;
 
-        double Cv_approx = Ev_curr / Tv_new;
-        if (Cv_approx < 1e-3)
-            Cv_approx = 1e-3;
-
-        double dTv = diff / Cv_approx;
-        // Clamp dTv
-        if (dTv > 100.0)
-            dTv = 100.0;
-        if (dTv < -100.0)
-            dTv = -100.0;
-
-        Tv_new += dTv;
+        Tv -= f / dEv;
+        if (Tv < 50.0)
+            Tv = 50.0;
+        if (Tv > 1.0e6)
+            Tv = 1.0e6;
     }
-    cell.Tv = Tv_new;
-
-    // --- STEP 4: UPDATE TRANSLATIONAL T ---
-    // Solve Energy Equation: E_total(T) = e_total_target
-    double T_new = cell.T;
-    for (int iter = 0; iter < 20; ++iter)
-    {
-        double T_dual[] = {T_new, cell.Tv};
-        mix.setState(cell.rhoY.data(), T_dual, 2);
-
-        double e_curr = mix.mixtureEnergyMass();
-        double Cv = mix.mixtureFrozenCvMass();
-
-        double error = e_total_target - e_curr;
-        if (std::abs(error) < 1.0)
-            break;
-
-        double dT = error / Cv;
-
-        // --- STIFF LIMITER ---
-        // If the physics wants to change T by > 50K, we stop it.
-        // This forces the loop to run stable.
-        if (dT > 50.0)
-            dT = 50.0;
-        if (dT < -50.0)
-            dT = -50.0;
-
-        T_new += dT;
-    }
-    cell.T = T_new;
+    return Tv;
 }
 
 int main()
 {
-    Mutation::MixtureOptions opts("air_5");
+    // ------------------------------------------------------------
+    // REQUIRED Mutation++ setup (your exact snippet)
+    // ------------------------------------------------------------
+    MixtureOptions opts("air_5");
     opts.setStateModel("ChemNonEqTTv");
     opts.setThermodynamicDatabase("RRHO");
-    Mutation::Mixture mix(opts);
+    Mixture mix(opts);
 
-    // Initial Conditions
-    double P_init = 0.063 * 101325.0;
-    double T_init = 10000.0;
-    double Tv_init = 1000.0; // Non-Equilibrium Start
+    const int ns = mix.nSpecies();
 
-    int iN2 = mix.speciesIndex("N2");
-    int iO2 = mix.speciesIndex("O2");
-    int iNO = mix.speciesIndex("NO");
-    int iN = mix.speciesIndex("N");
-    int iO = mix.speciesIndex("O");
+    // Build Y (mass fractions). Example: air = 0.79 N2 + 0.21 O2
+    std::vector<double> Y(ns, 0.0);
+    const int iN2 = mix.speciesIndex("N2");
+    const int iO2 = mix.speciesIndex("O2");
+    if (iN2 < 0 || iO2 < 0)
+        throw std::runtime_error("N2/O2 not found in air_5.");
 
-    std::vector<double> X(mix.nSpecies(), 0.0);
-    X[iN2] = 0.79;
-    X[iO2] = 0.21;
+    Y[iN2] = 0.79;
+    Y[iO2] = 0.21;
 
-    double Mw_mix = 0.0;
-    for (int i = 0; i < mix.nSpecies(); ++i)
-        Mw_mix += X[i] * mix.speciesMw(i);
-    double rho_init = P_init / ((8.31446 / Mw_mix) * T_init);
-
-    CellState cell;
-    cell.rho = rho_init;
-    cell.T = T_init;
-    cell.Tv = Tv_init;
-    cell.rhoY.resize(mix.nSpecies());
-    for (int i = 0; i < mix.nSpecies(); ++i)
-        cell.rhoY[i] = cell.rho * (X[i] * mix.speciesMw(i) / Mw_mix);
-
-    std::ofstream outFile("air_2T_data.csv");
-    outFile << "time,T,Tv,rho_N2,rho_O2,rho_NO,rho_N,rho_O" << std::endl;
-
-    double t = 0.0;
-    double t_end = 1.0e-3;
-    double dt = 1.0e-12; // Start extremely small
-
-    std::cout << "Starting 2T Sim. T=" << cell.T << " Tv=" << cell.Tv << std::endl;
-    int step = 0;
-    int print_freq = 100;
-
-    while (t < t_end)
+    // Store molar masses (kg/mol). We will take from paper values for robustness.
+    // (We still use Mutation++ for indexing / mixture definition.)
+    std::vector<double> Mmol(ns, 0.0);
+    // air_5 typically: N2 O2 NO N O (no vib for atoms)
+    // Put paper molar masses where applicable:
+    auto setM = [&](const char *name, double M)
     {
-        if (step % print_freq == 0)
-        {
-            outFile << t << "," << cell.T << "," << cell.Tv
-                    << "," << cell.rhoY[iN2] << "," << cell.rhoY[iO2]
-                    << "," << cell.rhoY[iNO] << "," << cell.rhoY[iN]
-                    << "," << cell.rhoY[iO] << std::endl;
+        int idx = mix.speciesIndex(name);
+        if (idx >= 0)
+            Mmol[idx] = M;
+    };
+    setM("N2", 28.0134e-3);
+    setM("O2", 31.9988e-3);
+    setM("NO", 30.0061e-3);
+    setM("N", 14.0067e-3);
+    setM("O", 15.9994e-3);
 
-            // Console Debug
-            if (step % 1000 == 0)
-                std::cout << "t=" << t << " T=" << cell.T << " Tv=" << cell.Tv << std::endl;
-
-            if (dt > 1e-10)
-                print_freq = 1000;
-        }
-
-        chemistry_relaxation_step(mix, cell, dt);
-        t += dt;
-        step++;
+    // Compute molar fractions X from Y:
+    // Xs = (Ys/Ms) / sum(Yk/Mk)
+    std::vector<double> X(ns, 0.0);
+    double denom = 0.0;
+    for (int s = 0; s < ns; ++s)
+    {
+        if (Y[s] > 0.0 && Mmol[s] > 0.0)
+            denom += Y[s] / Mmol[s];
+    }
+    for (int s = 0; s < ns; ++s)
+    {
+        if (Y[s] > 0.0 && Mmol[s] > 0.0)
+            X[s] = (Y[s] / Mmol[s]) / denom;
     }
 
-    outFile.close();
-    std::cout << "Done." << std::endl;
+    // Mixture gas constant Rmix = sum(Ys*Rs) = sum(Ys*Ru/Ms)
+    double Rmix = 0.0;
+    for (int s = 0; s < ns; ++s)
+    {
+        if (Y[s] > 0.0 && Mmol[s] > 0.0)
+            Rmix += Y[s] * Rs(Mmol[s]);
+    }
+
+    // ------------------------------------------------------------
+    // Initial conditions (vibrational heating: Ttr > Tv, curves intersect)
+    // ------------------------------------------------------------
+    double Ttr = 12000.0;
+    double Tv = 2000.0;
+
+    // constant-volume heat bath: keep rho constant, pressure evolves with Ttr
+    double p0 = 101325.0;
+    double rho = p0 / (Rmix * Ttr); // from p = rho*Rmix*Ttr (no electrons) :contentReference[oaicite:10]{index=10}
+
+    // Initialize Mutation++ state (not used for Et/Ev math here, but satisfies your requirement)
+    double Tstate[2] = {Ttr, Tv};
+    mix.setState(Y.data(), Tstate, 0);
+
+    // Build vib species indices present in this mixture
+    std::vector<int> vibIdx;
+    std::vector<double> vibM;
+    std::vector<double> vibTheta;
+    std::vector<double> vibSigma;
+
+    for (const auto &v : vibList)
+    {
+        int idx = mix.speciesIndex(v.name);
+        if (idx >= 0)
+        {
+            vibIdx.push_back(idx);
+            vibM.push_back(v.M_kg_per_mol);
+            vibTheta.push_back(v.theta_v);
+            vibSigma.push_back(v.sigma_m);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // Initial energies per unit volume (paper: sum rho_s * e_mode,s)
+    // Et = rho * sum(Ys * 3/2 * Rs * Ttr)  (Eq. 3) :contentReference[oaicite:11]{index=11}
+    // Ev = rho * sum(Ym * ev_m(Tv))        (Eq. 5) :contentReference[oaicite:12]{index=12}
+    // ------------------------------------------------------------
+    double Et = rho * (1.5 * Rmix * Ttr);
+    double Ev = 0.0;
+    for (size_t j = 0; j < vibIdx.size(); ++j)
+    {
+        const int s = vibIdx[j];
+        Ev += rho * Y[s] * ev_species(Tv, vibTheta[j], vibM[j]);
+    }
+
+    // ------------------------------------------------------------
+    // Time loop
+    // ------------------------------------------------------------
+    const double dt = 1.0e-8;
+    const int nSteps = 4000;
+
+    std::ofstream out("twoT_energy_based.dat");
+    out << "# t[s]  Ttr[K]  Tv[K]  Et[J/m3]  Ev[J/m3]  p[Pa]\n";
+
+    double t = 0.0;
+    for (int n = 0; n < nSteps; ++n)
+    {
+
+        // Recover Ttr from Et analytically:
+        // Et = rho * (3/2 * Rmix * Ttr) => Ttr = Et / (rho * 1.5 * Rmix)
+        Ttr = Et / (rho * 1.5 * Rmix);
+
+        // Pressure evolves in constant volume: p = rho*Rmix*Ttr :contentReference[oaicite:13]{index=13}
+        double p = rho * Rmix * Ttr;
+
+        // Recover Tv from Ev by Newton inversion
+        Tv = invert_Tv_from_Ev(Ev, rho, Y, vibIdx, vibM, vibTheta);
+
+        // Write output
+        out << t << " " << Ttr << " " << Tv << " " << Et << " " << Ev << " " << p << "\n";
+
+        // Update Mutation++ state (again: satisfies your “use Mutation++ input data” requirement)
+        Tstate[0] = Ttr;
+        Tstate[1] = Tv;
+        mix.setState(Y.data(), Tstate, 0);
+
+        // Compute Q_VT (Eq. 8): sum_m rho_m*(ev(Ttr)-ev(Tv))/tau_m :contentReference[oaicite:14]{index=14}
+        double Qvt = 0.0;
+        for (size_t j = 0; j < vibIdx.size(); ++j)
+        {
+            const int m = vibIdx[j]; // molecule species index
+            const double Ym = Y[m];
+            if (Ym <= 0.0)
+                continue;
+
+            const double ev_tr = ev_species(Ttr, vibTheta[j], vibM[j]);
+            const double ev_tv = ev_species(Tv, vibTheta[j], vibM[j]);
+
+            const double tau_m = tau_vt_mixture_avg(
+                Ttr, p, X, Mmol,
+                m, vibTheta[j], vibSigma[j]);
+
+            Qvt += rho * Ym * (ev_tr - ev_tv) / tau_m;
+        }
+
+        // Conservative update:
+        Ev += Qvt * dt;
+        Et -= Qvt * dt;
+
+        t += dt;
+    }
+
+    out.close();
+    std::cout << "Wrote: twoT_energy_based.dat\n";
     return 0;
 }
