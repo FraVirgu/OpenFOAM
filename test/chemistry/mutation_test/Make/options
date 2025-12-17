@@ -1,4 +1,3 @@
-# Suppress warnings
 C++WARN += -Wno-unused-function \
            -Wno-int-in-bool-context \
            -Wno-ignored-qualifiers \
@@ -8,14 +7,14 @@ C++WARN += -Wno-unused-function \
            -Wno-deprecated-copy
 
 EXE_INC = \
-    -I$(LIB_SRC)/finiteVolume/lnInclude \
-    -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
-    -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude \
+    -I$(FOAM_SRC)/OpenFOAM/lnInclude \
+    -I$(FOAM_SRC)/OSspecific/POSIX/lnInclude \
+    -I$(FOAM_SRC)/finiteVolume/lnInclude \
+    -I$(FOAM_SRC)/thermophysicalModels/basic/lnInclude \
+    -I$(FOAM_SRC)/thermophysicalModels/specie/lnInclude \
     -I$(MPP_DIRECTORY)/install/include/mutation++ \
     -I$(MPP_EIGEN)/install/include/eigen3
 
-LIB_LIBS = \
-    -L$(MPP_DIRECTORY)/install/lib \
-    -lmutation++
-
-    
+EXE_LIBS = \
+    -lspecie \
+    -L$(MPP_DIRECTORY)/install/lib -lmutation++
