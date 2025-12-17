@@ -8,40 +8,23 @@
 FoamFile
 {
     format      ascii;
-    class       dictionary;
-    location    "constant";
-    object      physicalProperties;
+    class       volScalarField;
+    location    "0";
+    object      Tve;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-thermoType
+dimensions      [0 0 0 1 0 0 0];
+
+internalField   uniform 1000;
+
+boundaryField
 {
-    type            highEnthalpyThermo;
-    mixture         multicomponentMixture;
-    transport       sutherland;
-    thermo          janaf;
-    energy          sensibleEnthalpy;
-    equationOfState perfectGas;
-    specie          specie;
+    boundary
+    {
+        type            empty;
+    }
 }
 
-// Mutation++ mixture name for two-temperature model
-mixture         air_5;
-
-// Relaxation time step for energy transfer
-relaxationTimeStep 1e-8;
-
-species
-(
-    N2
-    O2
-    NO
-    N
-    O
-);
-
-defaultSpecie N2;
-
-#include "speciesThermo"
 
 // ************************************************************************* //

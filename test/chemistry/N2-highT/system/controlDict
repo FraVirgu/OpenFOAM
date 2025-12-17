@@ -46,6 +46,12 @@ timePrecision   6;
 
 runTimeModifiable yes;
 
+libs
+(
+    "libmutationMixture.so"
+    "libhighEnthalpyThermophysicalModels.so"
+);
+
 DebugSwitches
 {
     SolverPerformance   0;

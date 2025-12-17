@@ -1,0 +1,53 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  13
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+Build  : 13-5599db86c70d
+Exec   : chemFoam
+Date   : Dec 17 2025
+Time   : 18:51:32
+Host   : "c058f38f3ba5"
+PID    : 1186
+I/O    : uncollated
+Case   : /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/test/chemistry/N2-highT
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 10)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Constructing zero-dimensional mesh
+
+Reading initial conditions.
+
+Creating base fields for time 0
+Reading thermophysical properties
+
+Selecting thermodynamics package 
+{
+    type            highEnthalpyThermo;
+    mixture         multicomponentMixture;
+    transport       sutherland;
+    thermo          janaf;
+    energy          sensibleEnthalpy;
+    equationOfState perfectGas;
+    specie          specie;
+}
+
+
+
+--> FOAM FATAL IO ERROR: 
+keyword Tlow is undefined in dictionary "/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/test/chemistry/N2-highT/constant/speciesThermo/thermodynamics"
+
+file: /home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/test/chemistry/N2-highT/constant/speciesThermo/thermodynamics from line 16 to 37.
+
+    From function T Foam::dictionary::lookup(const Foam::word&, bool, bool) const [with T = double]
+    in file /home/student/OpenFOAM/student-13/run/OpenFOAM/OpenFOAM-13/src/OpenFOAM/lnInclude/dictionaryTemplates.C at line 150.
+
+FOAM exiting
+
