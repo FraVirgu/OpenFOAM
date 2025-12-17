@@ -32,6 +32,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/specie/lnInclude/makeThermo.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/multicomponentThermo.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/basicThermo.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvMesh.H \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermo.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/fluidThermo.H \
@@ -690,6 +691,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/specie/lnInclude/makeThermo.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/multicomponentThermo.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/basicThermo.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvMesh.H :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermo.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/fluidThermo.H :

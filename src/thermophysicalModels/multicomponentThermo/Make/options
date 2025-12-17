@@ -4,10 +4,15 @@ EXE_INC = \
     -I$(LIB_SRC)/physicalProperties/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/basic/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude \
+     -I$(POLIMI_SRC)/thermophysicalModels/mutationMixture/lnInclude \
+    -I$(MPP_DIRECTORY)/install/include/mutation++ \
+    -I$(MPP_EIGEN)/install/include/eigen3 \
     -I$(LIB_SRC)/finiteVolume/lnInclude
 
 LIB_LIBS = \
+  -L$(FOAM_USER_LIBBIN) \
     -lfluidThermophysicalModels \
     -lspecie \
     -lfiniteVolume \
+    -lmutationMixture \
     -lmulticomponentThermophysicalModels

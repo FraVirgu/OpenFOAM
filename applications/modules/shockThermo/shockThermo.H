@@ -49,11 +49,9 @@ Author:
 #include "combustionModel.H"
 #include "fluidMulticomponentThermophysicalTransportModel.H"
 #include "multivariateScheme.H"
-#include "mutationMixture.H"
 #include "highEnthalpyMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-class mutationMixture;
 
 namespace Foam
 {
@@ -72,10 +70,6 @@ namespace Foam
             // Thermophysical properties
 
             fluidMulticomponentThermo &thermo_;
-
-            // 2 Temprature update methods
-            autoPtr<mutationMixture> mutationMixPtr_;
-            highEnthalpyMulticomponentThermo *heThermoPtr_;
 
             // Composition
 
@@ -167,9 +161,6 @@ namespace Foam
 
             // //- Called after the PIMPLE loop at the end of the time-step
             // virtual void postSolve();
-
-            //- Access to mutation mixture
-            mutationMixture &mutation() { return *mutationMixPtr_; }
 
             // Member Operators
 

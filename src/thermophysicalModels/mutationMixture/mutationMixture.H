@@ -1,7 +1,23 @@
 #ifndef mutationMixture_H
 #define mutationMixture_H
 
+// Undefine OpenFOAM's log macro before including Mutation++ headers
+// to avoid collision with Mutation++'s Log class
+#ifdef log
+#define FOAM_LOG_WAS_DEFINED
+#undef log
+#endif
+
 #include <mutation++.h>
+
+// Restore OpenFOAM's log macro if it was defined
+#ifdef FOAM_LOG_WAS_DEFINED
+#define log        \
+    if (Foam::log) \
+    Foam::Info
+#undef FOAM_LOG_WAS_DEFINED
+#endif
+
 #include <vector>
 #include <string>
 

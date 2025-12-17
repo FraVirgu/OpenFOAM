@@ -117,6 +117,12 @@ namespace Foam
     {
 
     private:
+        //- Mutation mixture for two-temperature relaxation
+        autoPtr<mutationMixture> mutationMixPtr_;
+
+        //- Time step for energy relaxation (read from dict or default)
+        scalar relaxationTimeStep_;
+
     public:
         volScalarField Tve_;
 
@@ -150,6 +156,24 @@ namespace Foam
             Info << "highEnthalpyMulticomponentThermo::composite - "
                  << "constructor"
                  << endl;
+
+            // Read mixture name from thermophysicalProperties dictionary
+            word mixtureName = "air_5"; // default
+            if (dict.found("mixture"))
+            {
+                mixtureName = word(dict.lookup("mixture"));
+            }
+
+            Info << "Initializing mutationMixture with mechanism: "
+                 << mixtureName << endl;
+
+            mutationMixPtr_.reset(
+                new mutationMixture(mixtureName.c_str()));
+
+            // Read relaxation time step (default: 1e-8)
+            relaxationTimeStep_ = dict.lookupOrDefault<scalar>("relaxationTimeStep", 1.0e-8);
+
+            Info << "Relaxation time step: " << relaxationTimeStep_ << " s" << endl;
         }
 
         volScalarField &Tve() override
@@ -199,6 +223,95 @@ namespace Foam
 
             // 4) Enforce BC consistency
             Tve_.correctBoundaryConditions();
+        }
+
+        // Override correct() to use mutationMixture
+        virtual void correct() override
+        {
+            Info << "highEnthalpyMulticomponentThermo::composite::correct() called" << endl;
+
+            volScalarField &T = this->T_;
+            volScalarField &Tve = this->Tve_;
+            volScalarField &p = this->p_;
+
+            // rho() returns tmp<volScalarField> in many implementations
+            tmp<volScalarField> trho = this->rho();
+            const volScalarField &rho = trho();
+
+            // Species count (volScalarField list)
+            const label nSpecies = this->Y().size();
+
+            // Universal gas constant
+            static constexpr double Ru = 8.31446261815324;
+
+            // Build a slicer for Y fields (OpenFOAM pattern you already use)
+            auto Yslicer = this->Yslicer();
+
+            forAll(T, celli)
+            {
+                // Grab mass fractions for this cell
+                std::vector<double> Y_cell(nSpecies, 0.0);
+                for (label i = 0; i < nSpecies; ++i)
+                    Y_cell[i] = this->Y()[i][celli];
+
+                // Compute Rmix = sum(Yi * Ru/Mwi)
+                double Rmix = 0.0;
+                for (label i = 0; i < nSpecies; ++i)
+                {
+                    if (Y_cell[i] <= 0.0)
+                        continue;
+                    const scalar Mw = this->Wi(i).value(); // kg/mol
+                    if (Mw > 0.0)
+                        Rmix += Y_cell[i] * Ru / Mw;
+                }
+
+                if (Rmix <= SMALL || rho[celli] <= SMALL)
+                {
+                    // fallback
+                    Tve[celli] = T[celli];
+                    continue;
+                }
+
+                // Build energies from current temperatures
+                // (translation-only model consistent with your wrapper)
+                double Et = rho[celli] * 1.5 * Rmix * T[celli];
+
+                // IMPORTANT: you previously used a "simplified" Ev.
+                // Better: store Ev as a field later.
+                // For now, keep a conservative "Ev = 0" or use previous cell Ev if you add it.
+                double Ev = 0.0;
+
+                double Ttr = T[celli];
+                double Tv = Tve[celli];
+
+                if (mutationMixPtr_.valid())
+                {
+                    mutationMixPtr_->step(
+                        relaxationTimeStep_,
+                        rho[celli],
+                        Y_cell,
+                        Et,
+                        Ev,
+                        Ttr,
+                        Tv);
+
+                    T[celli] = Ttr;
+                    Tve[celli] = Tv;
+
+                    // Optional: keep pressure consistent
+                    p[celli] = rho[celli] * Rmix * T[celli];
+                }
+                else
+                {
+                    // fallback
+                    T[celli] = p[celli] / (rho[celli] * Rmix);
+                    Tve[celli] = T[celli];
+                }
+            }
+
+            T.correctBoundaryConditions();
+            Tve.correctBoundaryConditions();
+            p.correctBoundaryConditions();
         }
     };
 
