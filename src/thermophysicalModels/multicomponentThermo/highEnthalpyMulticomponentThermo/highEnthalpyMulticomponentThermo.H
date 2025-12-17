@@ -184,7 +184,7 @@ namespace Foam
             // 2) Copy INTERNAL values (raw)
             forAll(Tve_.internalFieldRef(), i)
             {
-                Tve_.internalFieldRef()[i] = newTve.internalField()[i];
+                Tve_.internalFieldRef()[i] = -5000;
             }
 
             // 3) Copy BOUNDARY values (raw)
