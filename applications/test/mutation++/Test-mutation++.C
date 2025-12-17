@@ -118,6 +118,14 @@ int main()
 
     const int ns = mix.nSpecies();
 
+    std::vector<std::string> speciesNames(ns);
+    std::cout << "Species in mixture:\n";
+    for (int s = 0; s < ns; ++s)
+    {
+        speciesNames[s] = mix.speciesName(s);
+        std::cout << "  " << speciesNames[s] << "\n";
+    }
+
     // ------------------------------------------------------------
     // Composition (air)
     // ------------------------------------------------------------
@@ -195,7 +203,10 @@ int main()
     // Output
     // ------------------------------------------------------------
     std::ofstream out("twoT_energy_based.dat");
-    out << "# t  Ttr  Tv  Et  Ev  p\n";
+    out << "# t  Ttr  Tv  Et  Ev  p";
+    for (int s = 0; s < ns; ++s)
+        out << " rho_" << speciesNames[s];
+    out << "\n";
 
     // ------------------------------------------------------------
     // Time loop
@@ -224,7 +235,14 @@ int main()
 
         // Write
         out << t << " " << Ttr << " " << Tv
-            << " " << Et << " " << Ev << " " << p << "\n";
+            << " " << Et << " " << Ev << " " << p;
+
+        for (int s = 0; s < ns; ++s)
+        {
+            double rho_s = rho * Y[s];
+            out << " " << rho_s;
+        }
+        out << "\n";
 
         // Source term from Mutation++
         double Qve = getQve(mix);
