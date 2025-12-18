@@ -129,7 +129,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
     if (heThermoPtr_)
     {
         Info << "    Correcting high enthalpy thermodynamics" << endl;
-        heThermoPtr_->correct();
+        heThermoPtr_->correct_he();
     }
     else
     {

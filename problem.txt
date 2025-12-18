@@ -1,0 +1,136 @@
+File content starts here
+------------------------------------------------------------
+
+Two-temperature model – what is wrong and how to fix it
+=======================================================
+
+1. What is happening right now
+------------------------------
+
+In the OpenFOAM solver you do:
+
+    energy  sensibleInternalEnergy;
+
+so the field "e" solved by OpenFOAM is **total internal energy per unit mass**:
+
+    e = e_tr + e_rot + e_vib + e_elec
+
+In your custom highEnthalpyMulticomponentThermo::correct_he()
+you currently do:
+
+    Et = rho * (1.5 * Rmix * T);
+    Ev = 0;
+    mutationMix.step(dtRelax, rho, Y, Et, Ev, Ttr, Tv);
+
+This means:
+
+ - You throw away the energy that the PDE just solved for.
+ - You force Et = 1.5 R T (monoatomic) every timestep.
+ - You force Ev = 0 every timestep.
+ - Mutation++ relaxes these "fake" energies.
+
+This breaks energy conservation and is the reason JANAF and Mutation++ 
+explode to 1e5–1e6 K temperatures until they overflow and crash.
+
+The core problem:
+
+    You treat "e" as translational energy e_tr,
+    but OpenFOAM computes total internal energy,
+    so Mutation++ receives inconsistent energy data.
+
+------------------------------------------------------------
+
+2. What the standalone C++ test does correctly
+----------------------------------------------
+
+The test program defines:
+
+    Et = translational energy density
+    Ev = vibrational energy density
+
+These two are OWNED and EVOLVED by Mutation++:
+
+    mutationMix.step(dt, rho, Y, Et, Ev, Ttr, Tv)
+
+Et and Ev are consistent with total energy:
+
+    Et + Ev = constant  (for pure relaxation test)
+
+Ttr and Tv evolve smoothly and physically.
+
+------------------------------------------------------------
+
+3. How to fix the OpenFOAM implementation
+-----------------------------------------
+
+You need:
+
+  (A) Persistent fields Et_ and Ev_ in the thermo class.
+  (B) After the energy equation is solved in OpenFOAM,
+      take total energy = rho * e and distribute it between Et/Ev.
+  (C) Call Mutation++ to relax only the *distribution* of energy.
+  (D) Write back consistent T, Tv, p, and e.
+
+Pseudo-code:
+
+    double Etot = rho * e;      // total energy from OpenFOAM PDE
+
+    // Start from previous values
+    double Et = Et_[cell];
+    double Ev = Ev_[cell];
+
+    // First timestep initialization
+    if (Et + Ev < SMALL)
+    {
+        Et = rho * (1.5 * Rmix * T);     // guess
+        Ev = Etot - Et;                  // the rest
+    }
+    else
+    {
+        // Enforce consistency with Etot
+        double scale = Etot / (Et + Ev);
+        Et *= scale;
+        Ev *= scale;
+    }
+
+    // Relaxation step with Mutation++
+    mutationMix.step(dtRelax, rho, Y, Et, Ev, Ttr, Tv);
+
+    // Store back
+    Et_[cell] = Et;
+    Ev_[cell] = Ev;
+    T[cell] = Ttr;
+    Tve[cell] = Tv;
+    e[cell] = (Et + Ev)/rho;
+
+This guarantees:
+
+ - Total energy is governed by OpenFOAM PDE.
+ - Internal mode exchange (Et <-> Ev) is governed by Mutation++.
+ - T and Tv stay physical.
+ - No more JANAF warnings or crashes.
+
+------------------------------------------------------------
+
+4. How to reproduce your 0D test inside OpenFOAM
+------------------------------------------------
+
+To emulate the standalone test:
+
+ 1. Use a single cell mesh (1x1x1 or 1000x1x1 with empty sides).
+ 2. Set U = 0, no transport.
+ 3. Initial conditions:
+        T = 12000 K
+        Tve = 2000 K
+        p = 1 atm
+        Y = air composition
+ 4. Disable additional energy sources.
+ 5. Run the solver.
+
+OpenFOAM will keep total internal energy constant
+(because there is no transport in 0D),
+and Mutation++ will perform a pure relaxation step,
+exactly like in your standalone program.
+
+------------------------------------------------------------
+File content ends here

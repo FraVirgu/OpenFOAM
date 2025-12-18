@@ -65,7 +65,7 @@ namespace Foam
         virtual volScalarField &Tve() = 0;
         virtual const volScalarField &Tve() const = 0;
         virtual void correctTve(const volScalarField &newTve) = 0;
-        virtual void correct() = 0;
+        virtual void correct_he() = 0;
 
         // Public Typedefs
 
@@ -227,7 +227,7 @@ namespace Foam
         }
 
         // Override correct() to use mutationMixture
-        virtual void correct() override
+        virtual void correct_he() override
         {
             Info << "highEnthalpyMulticomponentThermo::composite::correct() called" << endl;
 
