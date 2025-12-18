@@ -16,11 +16,11 @@ FoamFile
 
 thermoType
 {
-    type            fluidMulticomponentThermo;
-    mixture         reactingMixture;
+    type            highEnthalpyThermo;
+    mixture         multicomponentMixture;
     transport       sutherland;
     thermo          janaf;
-    energy          sensibleEnthalpy;
+    energy          sensibleInternalEnergy;
     equationOfState perfectGas;
     specie          specie;
 }

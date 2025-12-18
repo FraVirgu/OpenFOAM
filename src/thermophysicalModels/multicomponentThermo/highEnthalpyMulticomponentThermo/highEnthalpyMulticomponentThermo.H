@@ -65,6 +65,7 @@ namespace Foam
         virtual volScalarField &Tve() = 0;
         virtual const volScalarField &Tve() const = 0;
         virtual void correctTve(const volScalarField &newTve) = 0;
+        virtual void correct() = 0;
 
         // Public Typedefs
 

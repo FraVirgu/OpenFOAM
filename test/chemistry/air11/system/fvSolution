@@ -16,12 +16,33 @@ FoamFile
 
 solvers
 {
+     "(rho|rhoU|rhoE).*"
+    {
+        solver          diagonal;
+    }
+
+    "U.*"
+    {
+        solver          smoothSolver;
+        smoother        GaussSeidel;
+        nSweeps         2;
+        tolerance       1e-09;
+        relTol          0.01;
+    }
+
+    "e.*"
+    {
+        $U;
+        tolerance       1e-10;
+        relTol          0;
+    }
+
     "Yi.*"
     {
-        solver          PBiCGStab;
+        solver          PBiCG;
         preconditioner  DILU;
-        tolerance       1e-12;
-        relTol          0;
+        tolerance       1e-8;
+        relTol          0.1;
     }
 }
 

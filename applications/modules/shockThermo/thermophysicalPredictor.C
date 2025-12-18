@@ -34,6 +34,7 @@ License
 void Foam::solvers::shockThermo::thermophysicalPredictor()
 {
 
+    Info << "    Solving thermophysical equations" << endl;
     // add support to multi-specie chemistry
     tmp<fv::convectionScheme<scalar>> mvConvection(
         fv::convectionScheme<scalar>::New(
@@ -124,15 +125,6 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
     EEqn.solve();
 
     fvConstraints().constrain(e);
-    // ------------------------------------------------------------------------
-    // 3. VIBRATIONAL-ELECTRONIC ENERGY (Using local mixture)
-    // ------------------------------------------------------------------------
-    if (heThermoPtr_)
-    {
-
-        volScalarField &Tve = heThermoPtr_->Tve();
-        heThermoPtr_->correctTve(Tve);
-    }
 
     thermo_.correct();
 }

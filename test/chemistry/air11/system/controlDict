@@ -57,11 +57,8 @@ libs
     // Standard Thermo (Safety)
     "libfluidThermophysicalModels.so"
 
-    // Your Mutation Interface
-    "libmutationMixture.so"
-
-    // Your Wrapper (Name matches your Make/files: libhighEnthalpyThermophysicalModels)
-    "libhighEnthalpyThermophysicalModels.so" 
+     "libmutationMixture.so"
+    "libhighEnthalpyThermophysicalModels.so"
 
     // Your Solver
     "libshockThermo.so"

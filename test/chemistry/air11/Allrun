@@ -7,6 +7,7 @@ cd ${0%/*} || exit 1    # Run from this directory
 # Set application name
 application=$(getApplication)
 
+runApplication blockMesh
 runApplication $application
 
 (cd validation && ./Allrun $*)

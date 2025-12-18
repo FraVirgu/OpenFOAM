@@ -49,7 +49,6 @@ Author:
 #include "combustionModel.H"
 #include "fluidMulticomponentThermophysicalTransportModel.H"
 #include "multivariateScheme.H"
-#include "highEnthalpyMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -151,7 +150,7 @@ namespace Foam
             //- Construct and solve the energy equation,
             //  convert to temperature
             //  and update thermophysical and transport properties
-            virtual void thermophysicalPredictor();
+            virtual void thermophysicalPredictor() override;
 
             // //- Construct and solve the pressure equation in the PISO loop
             // virtual void pressureCorrector();

@@ -37,32 +37,28 @@ License
 
 namespace Foam
 {
-namespace solvers
-{
-    defineTypeNameAndDebug(shockFluid, 0);
-    addToRunTimeSelectionTable(solver, shockFluid, fvMesh);
+    namespace solvers
+    {
+        defineTypeNameAndDebug(shockFluid, 0);
+        addToRunTimeSelectionTable(solver, shockFluid, fvMesh);
+    }
 }
-}
-
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-void Foam::solvers::shockFluid::correctCoNum(const surfaceScalarField& amaxSf)
+void Foam::solvers::shockFluid::correctCoNum(const surfaceScalarField &amaxSf)
 {
     const scalarField sumAmaxSf(fvc::surfaceSum(amaxSf)().primitiveField());
 
     CoNum_ =
-        0.5*gMax(sumAmaxSf/mesh.V().primitiveField())*runTime.deltaTValue();
+        0.5 * gMax(sumAmaxSf / mesh.V().primitiveField()) * runTime.deltaTValue();
 
     const scalar meanCoNum =
-        0.5
-       *(gSum(sumAmaxSf)/gSum(mesh.V().primitiveField()))
-       *runTime.deltaTValue();
+        0.5 * (gSum(sumAmaxSf) / gSum(mesh.V().primitiveField())) * runTime.deltaTValue();
 
-    Info<< "Courant Number mean: " << meanCoNum
-        << " max: " << CoNum << endl;
+    Info << "Courant Number mean: " << meanCoNum
+         << " max: " << CoNum << endl;
 }
-
 
 // * * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * //
 
@@ -91,111 +87,82 @@ void Foam::solvers::shockFluid::clearTemporaryFields()
     devTau.clear();
 }
 
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::solvers::shockFluid::shockFluid(fvMesh& mesh)
-:
-    shockFluid(mesh, fluidThermo::New(mesh))
-{}  
+Foam::solvers::shockFluid::shockFluid(fvMesh &mesh)
+    : shockFluid(mesh, fluidThermo::New(mesh))
+{
+}
 
+Foam::solvers::shockFluid::shockFluid(
+    fvMesh &mesh,
+    autoPtr<fluidThermo> thermoPtr)
+    : fluidSolver(mesh),
 
-Foam::solvers::shockFluid::shockFluid
-(
-    fvMesh& mesh,
-    autoPtr<fluidThermo> thermoPtr
-)
-:
-fluidSolver(mesh),
+      thermoPtr_(thermoPtr),
 
-thermoPtr_(thermoPtr),
+      thermo_(thermoPtr_()),
 
-thermo_(thermoPtr_()),
+      p_(thermo_.p()),
 
-p_(thermo_.p()),
+      rho_(
+          IOobject(
+              "rho",
+              runTime.name(),
+              mesh,
+              IOobject::READ_IF_PRESENT,
+              IOobject::AUTO_WRITE),
+          thermo_.renameRho()),
 
-rho_
-(
-    IOobject
-    (
-        "rho",
-        runTime.name(),
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE
-    ),
-    thermo_.renameRho()
-),
+      U_(
+          IOobject(
+              "U",
+              runTime.name(),
+              mesh,
+              IOobject::MUST_READ,
+              IOobject::AUTO_WRITE),
+          mesh),
 
-U_
-(
-    IOobject
-    (
-        "U",
-        runTime.name(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::AUTO_WRITE
-    ),
-    mesh
-),
+      phi_(
+          IOobject(
+              "phi",
+              runTime.name(),
+              mesh,
+              IOobject::READ_IF_PRESENT,
+              IOobject::AUTO_WRITE),
+          linearInterpolate(rho_ * U_) & mesh.Sf()),
 
-phi_
-(
-    IOobject
-    (
-        "phi",
-        runTime.name(),
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE
-    ),
-    linearInterpolate(rho_*U_) & mesh.Sf()
-),
+      K("K", 0.5 * magSqr(U_)),
 
-K("K", 0.5*magSqr(U_)),
+      inviscid(
+          max(thermo_.mu().primitiveField()) > 0
+              ? false
+              : true),
 
-inviscid
-(
-    max(thermo_.mu().primitiveField()) > 0
-    ? false
-    : true
-),
+      momentumTransport(
+          inviscid
+              ? autoPtr<compressibleMomentumTransportModel>(nullptr)
+              : compressible::momentumTransportModel::New(
+                    rho_,
+                    U_,
+                    phi_,
+                    thermo_)),
 
-momentumTransport
-(
-    inviscid
-    ? autoPtr<compressibleMomentumTransportModel>(nullptr)
-    : compressible::momentumTransportModel::New
-    (
-        rho_,
-        U_,
-        phi_,
-        thermo_
-    )
-),
+      thermophysicalTransport(
+          inviscid
+              ? autoPtr<fluidThermoThermophysicalTransportModel>(nullptr)
+              : fluidThermoThermophysicalTransportModel::New(
+                    momentumTransport(),
+                    thermo_)),
 
-thermophysicalTransport
-(
-    inviscid
-    ? autoPtr<fluidThermoThermophysicalTransportModel>(nullptr)
-    : fluidThermoThermophysicalTransportModel::New
-    (
-        momentumTransport(),
-        thermo_
-    )
-),
+      fluxScheme(
+          mesh.schemes().dict().lookupOrDefault<word>("fluxScheme", "Kurganov")),
 
-fluxScheme
-(
-    mesh.schemes().dict().lookupOrDefault<word>("fluxScheme", "Kurganov")
-),
-
-thermo(thermo_),
-p(p_),
-rho(rho_),
-U(U_),
-phi(phi_)
+      thermo(thermo_),
+      p(p_),
+      rho(rho_),
+      U(U_),
+      phi(phi_)
 {
     thermo.validate(type(), "e");
 
@@ -209,54 +176,42 @@ phi(phi_)
 
     if (transient())
     {
-        const surfaceScalarField amaxSf
-        (
-            max(mag(aphiv_pos()), mag(aphiv_neg()))
-        );
+        const surfaceScalarField amaxSf(
+            max(mag(aphiv_pos()), mag(aphiv_neg())));
 
         correctCoNum(amaxSf);
     }
     else if (LTS)
     {
-        Info<< "Using LTS" << endl;
+        Info << "Using LTS" << endl;
 
-        trDeltaT = tmp<volScalarField>
-        (
-            new volScalarField
-            (
-                IOobject
-                (
+        trDeltaT = tmp<volScalarField>(
+            new volScalarField(
+                IOobject(
                     fv::localEulerDdt::rDeltaTName,
                     runTime.name(),
                     mesh,
                     IOobject::READ_IF_PRESENT,
-                    IOobject::AUTO_WRITE
-                ),
+                    IOobject::AUTO_WRITE),
                 mesh,
-                dimensionedScalar(dimless/dimTime, 1),
-                extrapolatedCalculatedFvPatchScalarField::typeName
-            )
-        );
+                dimensionedScalar(dimless / dimTime, 1),
+                extrapolatedCalculatedFvPatchScalarField::typeName));
     }
-
 }
-
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 Foam::solvers::shockFluid::~shockFluid()
-{}
-
+{
+}
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
 void Foam::solvers::shockFluid::preSolve()
 {
     {
-        const surfaceScalarField amaxSf
-        (
-            max(mag(aphiv_pos()), mag(aphiv_neg()))
-        );
+        const surfaceScalarField amaxSf(
+            max(mag(aphiv_pos()), mag(aphiv_neg())));
 
         if (transient())
         {
@@ -282,13 +237,11 @@ void Foam::solvers::shockFluid::preSolve()
     mesh_.update();
 }
 
-
 void Foam::solvers::shockFluid::prePredictor()
 {
     fluxPredictor();
     correctDensity();
 }
-
 
 void Foam::solvers::shockFluid::momentumTransportPredictor()
 {
@@ -298,7 +251,6 @@ void Foam::solvers::shockFluid::momentumTransportPredictor()
     }
 }
 
-
 void Foam::solvers::shockFluid::thermophysicalTransportPredictor()
 {
     if (!inviscid)
@@ -306,7 +258,6 @@ void Foam::solvers::shockFluid::thermophysicalTransportPredictor()
         thermophysicalTransport->predict();
     }
 }
-
 
 void Foam::solvers::shockFluid::momentumTransportCorrector()
 {
@@ -316,7 +267,6 @@ void Foam::solvers::shockFluid::momentumTransportCorrector()
     }
 }
 
-
 void Foam::solvers::shockFluid::thermophysicalTransportCorrector()
 {
     if (!inviscid)
@@ -325,9 +275,8 @@ void Foam::solvers::shockFluid::thermophysicalTransportCorrector()
     }
 }
 
-
 void Foam::solvers::shockFluid::postSolve()
-{}
-
+{
+}
 
 // ************************************************************************* //

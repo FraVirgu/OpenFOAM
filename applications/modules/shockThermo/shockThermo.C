@@ -37,8 +37,6 @@ License
 
 #include "fvmLaplacian.H"
 
-#include "highEnthalpyMulticomponentThermo.H"
-
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -57,10 +55,7 @@ namespace Foam
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::solvers::shockThermo::shockThermo(fvMesh &mesh)
-    : shockFluid(
-          mesh,
-          autoPtr<fluidThermo>(fluidMulticomponentThermo::New(mesh).ptr())),
-
+    : shockFluid(mesh, fluidThermo::New(mesh)),
       thermo_(refCast<fluidMulticomponentThermo>(shockFluid::thermo_)),
 
       Y_(thermo_.Y()),
