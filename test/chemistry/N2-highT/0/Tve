@@ -15,14 +15,13 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 dimensions      [0 0 0 1 0 0 0];
-
-internalField   uniform 1000;
-
+internalField   uniform 2000;
 boundaryField
 {
-    boundary
+    default
     {
-        type            empty;
+        type            calculated;
+        value           uniform 2000;
     }
 }
 

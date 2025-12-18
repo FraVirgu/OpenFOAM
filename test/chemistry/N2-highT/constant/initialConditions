@@ -1,9 +1,8 @@
 /*--------------------------------*- C++ -*----------------------------------*\
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
-   \\    /   O peration     | Website:  https://openfoam.org
-    \\  /    A nd           | Version:  12
-     \\/     M anipulation  |
+   \\    /   O peration     | Version:  13
+     \\/
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
@@ -12,22 +11,22 @@ FoamFile
     location    "constant";
     object      initialConditions;
 }
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-constantProperty ?; // pressure;
+constantProperty pressure;
 
+p           202650;  // Pa
+T           300;     // K
 fractionBasis  mole;
 
 fractions
 {
-    H2              1;
-    N2              3.76;
-    O2              1;
+    N2      0.79;
+    O2      0.21;
+    NO      0;
+    N       0;
+    O       0;
 }
-
-p               202650;
-
-T               1000;
-
 
 // ************************************************************************* //
