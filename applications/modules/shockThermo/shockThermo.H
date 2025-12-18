@@ -49,6 +49,7 @@ Author:
 #include "combustionModel.H"
 #include "fluidMulticomponentThermophysicalTransportModel.H"
 #include "multivariateScheme.H"
+#include "highEnthalpyMulticomponentThermo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -69,6 +70,8 @@ namespace Foam
             // Thermophysical properties
 
             fluidMulticomponentThermo &thermo_;
+
+            highEnthalpyMulticomponentThermo *heThermoPtr_;
 
             // Composition
 

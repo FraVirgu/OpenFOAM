@@ -16,6 +16,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/fluidM
 $(WM_PROJECT_DIR)/src/combustionModels/lnInclude/combustionModel.H \
 $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluidMulticomponentThermo/lnInclude/fluidMulticomponentThermophysicalTransportModel.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.H \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/highEnthalpyMulticomponentThermo.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvMesh.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/HashPtrTable.H \
 $(WM_PROJECT_DIR)/src/meshTools/lnInclude/intersectionPatchToPatch.H \
@@ -53,6 +54,7 @@ $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluid/lnInclude/LESThermophy
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateSurfaceInterpolationScheme.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.C \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/HighEnthalpyMulticomponentThermo.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/polyMesh.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/lduMesh.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/primitiveMesh.H \
@@ -136,6 +138,7 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceMesh.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvsPatchFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvsPatchFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/upwind.H \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/objectRegistry.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/pointField.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/faceList.H \
@@ -867,6 +870,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/fluidM
 $(WM_PROJECT_DIR)/src/combustionModels/lnInclude/combustionModel.H :
 $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluidMulticomponentThermo/lnInclude/fluidMulticomponentThermophysicalTransportModel.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.H :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/highEnthalpyMulticomponentThermo.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvMesh.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/HashPtrTable.H :
 $(WM_PROJECT_DIR)/src/meshTools/lnInclude/intersectionPatchToPatch.H :
@@ -904,6 +908,7 @@ $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluid/lnInclude/LESThermophy
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateSurfaceInterpolationScheme.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.C :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/HighEnthalpyMulticomponentThermo.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/polyMesh.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/lduMesh.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/primitiveMesh.H :
@@ -987,6 +992,7 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceMesh.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvsPatchFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvsPatchFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/upwind.H :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/objectRegistry.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/pointField.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/faceList.H :

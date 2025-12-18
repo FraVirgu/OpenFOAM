@@ -7,6 +7,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/fluidM
 $(WM_PROJECT_DIR)/src/combustionModels/lnInclude/combustionModel.H \
 $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluidMulticomponentThermo/lnInclude/fluidMulticomponentThermophysicalTransportModel.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.H \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/highEnthalpyMulticomponentThermo.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFieldsFwd.H \
 $(WM_PROJECT_DIR)/applications/modules/fluidSolver/lnInclude/fluidSolver.H \
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/fluidThermo.H \
@@ -23,6 +24,8 @@ $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluid/lnInclude/LESThermophy
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateSurfaceInterpolationScheme.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.C \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/HighEnthalpyMulticomponentThermo.H \
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/psiThermo.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/GeometricFieldFwd.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/fieldTypes.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/solver.H \
@@ -57,6 +60,9 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFieldsFwd.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvsPatchFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/upwind.H \
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H \
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.H \
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermo.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/label.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/scalar.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/vector.H \
@@ -138,6 +144,8 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvFieldSource.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvPatchFields.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFieldsI.H \
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/limitedSurfaceInterpolationScheme.H \
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.C \
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermoI.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/int.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/labelSpecific.H \
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/floatScalar.H \
@@ -756,6 +764,7 @@ $(WM_PROJECT_DIR)/src/thermophysicalModels/multicomponentThermo/lnInclude/fluidM
 $(WM_PROJECT_DIR)/src/combustionModels/lnInclude/combustionModel.H :
 $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluidMulticomponentThermo/lnInclude/fluidMulticomponentThermophysicalTransportModel.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.H :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/highEnthalpyMulticomponentThermo.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFieldsFwd.H :
 $(WM_PROJECT_DIR)/applications/modules/fluidSolver/lnInclude/fluidSolver.H :
 $(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/fluidThermo.H :
@@ -772,6 +781,8 @@ $(WM_PROJECT_DIR)/src/ThermophysicalTransportModels/fluid/lnInclude/LESThermophy
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateSurfaceInterpolationScheme.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/multivariateScheme.C :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/multicomponentThermo/lnInclude/HighEnthalpyMulticomponentThermo.H :
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/psiThermo.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/GeometricFieldFwd.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/fieldTypes.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/solver.H :
@@ -806,6 +817,9 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/surfaceFieldsFwd.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvsPatchFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/upwind.H :
+/home/student/OpenFOAM/student-13/run/aeroHPC/OpenFOAM/src/thermophysicalModels/mutationMixture/lnInclude/mutationMixture.H :
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.H :
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermo.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/label.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/scalar.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/vector.H :
@@ -887,6 +901,8 @@ $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/fvFieldSource.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/calculatedFvPatchFields.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/volFieldsI.H :
 $(WM_PROJECT_DIR)/src/finiteVolume/lnInclude/limitedSurfaceInterpolationScheme.H :
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/PsiThermo.C :
+$(WM_PROJECT_DIR)/src/thermophysicalModels/basic/lnInclude/pureThermoI.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/int.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/labelSpecific.H :
 $(WM_PROJECT_DIR)/src/OpenFOAM/lnInclude/floatScalar.H :

@@ -126,7 +126,16 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
     fvConstraints().constrain(e);
 
-    thermo_.correct();
+    if (heThermoPtr_)
+    {
+        Info << "    Correcting high enthalpy thermodynamics" << endl;
+        heThermoPtr_->correct();
+    }
+    else
+    {
+        Info << "    Correcting thermodynamics" << endl;
+        thermo_.correct();
+    }
 }
 
 // ************************************************************************* //

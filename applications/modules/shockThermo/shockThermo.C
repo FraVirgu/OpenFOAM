@@ -70,6 +70,11 @@ Foam::solvers::shockThermo::shockThermo(fvMesh &mesh)
       Y(Y_)
 
 {
+    // Safe OpenFOAM-style runtime cast
+    heThermoPtr_ =
+        isA<highEnthalpyMulticomponentThermo>(thermo_)
+            ? &refCast<highEnthalpyMulticomponentThermo>(thermo_)
+            : nullptr;
     thermo.validate(type(), "h", "e");
 
     forAll(Y, i)
