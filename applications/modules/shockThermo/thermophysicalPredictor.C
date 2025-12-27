@@ -107,7 +107,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
     fvScalarMatrix EEqn(
         fvm::ddt(rho, e) + fvc::div(phiEp) + fvc::ddt(rho, K) ==
-        fvModels().source(rho, e));
+        reaction->Qdot() + fvModels().source(rho, e));
 
     if (!inviscid)
     {
@@ -126,12 +126,7 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 
     fvConstraints().constrain(e);
 
-    Info << "    Correcting thermodynamics" << endl;
-
-    thermo_.correct();
-
-    /*
-      if (heThermoPtr_)
+    if (heThermoPtr_)
     {
         Info << "    Correcting high enthalpy thermodynamics" << endl;
         heThermoPtr_->correct_he();
@@ -141,9 +136,6 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
         Info << "    Correcting thermodynamics" << endl;
         thermo_.correct();
     }
-
-
-    */
 }
 
 // ************************************************************************* //

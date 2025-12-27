@@ -7,33 +7,6 @@
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
-
-    OpenFOAM is free software: you can redistribute it and/or modify it
-    under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
-    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-    for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
-
-Class
-    Foam::highEnthalpyMulticomponentThermo
-
-Description
-    Class for multi-component high-enthalpy fluid thermodynamic properties
-    based on compressibility.
-
-See also
-    Foam::basicThermo
-
-SourceFiles
-    highEnthalpyMulticomponentThermo.C
-
 \*---------------------------------------------------------------------------*/
 
 #ifndef highEnthalpyMulticomponentThermo_H
@@ -43,11 +16,8 @@ SourceFiles
 #include "psiThermo.H"
 #include "fluidMulticomponentThermo.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 namespace Foam
 {
-
     /*---------------------------------------------------------------------------*\
                           Class highEnthalpyMulticomponentThermo Declaration
     \*---------------------------------------------------------------------------*/
@@ -57,9 +27,6 @@ namespace Foam
           virtual public fluidMulticomponentThermo
     {
     public:
-        // Public Classes
-
-        //- Forward declare the composite class
         class composite;
 
         virtual volScalarField &Tve() = 0;
@@ -67,9 +34,6 @@ namespace Foam
         virtual void correctTve(const volScalarField &newTve) = 0;
         virtual void correct_he() = 0;
 
-        // Public Typedefs
-
-        //- The derived type
         template <class MixtureType>
         using DerivedThermoType =
             HighEnthalpyMulticomponentThermo<
@@ -77,10 +41,8 @@ namespace Foam
                     PsiThermo<
                         BasicThermo<MixtureType, composite>>>>;
 
-        //- Runtime type information
         TypeName("highEnthalpyMulticomponentThermo");
 
-        //- Declare run-time constructor selection tables
         declareRunTimeSelectionTable(
             autoPtr,
             highEnthalpyMulticomponentThermo,
@@ -88,20 +50,12 @@ namespace Foam
             (const fvMesh &mesh, const word &phaseName),
             (mesh, phaseName));
 
-        // Selectors
-
-        //- Standard selection based on fvMesh
         static autoPtr<highEnthalpyMulticomponentThermo> New(
             const fvMesh &,
             const word &phaseName = word::null);
 
-        //- The derived name
-        static word derivedThermoName()
-        {
-            return "highEnthalpyThermo";
-        };
+        static word derivedThermoName() { return "highEnthalpyThermo"; };
 
-        //- Destructor
         virtual ~highEnthalpyMulticomponentThermo();
     };
 
@@ -118,18 +72,15 @@ namespace Foam
     {
 
     private:
-        //- Mutation mixture for two-temperature relaxation
         autoPtr<mutationMixture> mutationMixPtr_;
-
-        //- Time step for energy relaxation (read from dict or default)
         scalar relaxationTimeStep_;
 
     public:
         volScalarField Tve_;
+        volScalarField Et_;
+        volScalarField Ev_;
 
         // Constructors
-
-        //- Construct from dictionary, mesh and phase name
         template <class MixtureType>
         composite(
             const dictionary &dict,
@@ -151,82 +102,75 @@ namespace Foam
                       mesh,
                       IOobject::MUST_READ,
                       IOobject::AUTO_WRITE),
-                  mesh)
+                  mesh),
+              Et_(
+                  IOobject("Et", mesh.time().name(), mesh, IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
+                  mesh,
+                  dimensionedScalar(dimEnergy / dimVolume, 0.0)),
+              Ev_(
+                  IOobject("Ev", mesh.time().name(), mesh, IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
+                  mesh,
+                  dimensionedScalar(dimEnergy / dimVolume, 0.0))
         {
+            Info << "highEnthalpyMulticomponentThermo::composite - constructor" << endl;
 
-            Info << "highEnthalpyMulticomponentThermo::composite - "
-                 << "constructor"
-                 << endl;
-
-            // Read mixture name from thermophysicalProperties dictionary
-            word mixtureName = "air_5"; // default
+            word mixtureName = "air_5";
             if (dict.found("mixture"))
-            {
                 mixtureName = word(dict.lookup("mixture"));
-            }
 
-            Info << "Initializing mutationMixture with mechanism: "
-                 << mixtureName << endl;
+            Info << "Initializing mutationMixture with mechanism: " << mixtureName << endl;
+            mutationMixPtr_.reset(new mutationMixture(mixtureName.c_str()));
 
-            mutationMixPtr_.reset(
-                new mutationMixture(mixtureName.c_str()));
-
-            // Read relaxation time step (default: 1e-8)
             relaxationTimeStep_ = dict.lookupOrDefault<scalar>("relaxationTimeStep", 1.0e-8);
-
             Info << "Relaxation time step: " << relaxationTimeStep_ << " s" << endl;
+
+            // ------------------------------------------------------------
+            // Initialization Logic (Using Mutation++ for Mw to avoid Link Error)
+            // ------------------------------------------------------------
+            if (max(mag(Et_)).value() <= SMALL)
+            {
+                Info << "Initializing Et/Ev fields from Temperature..." << endl;
+
+                volScalarField &T = this->T_;
+                tmp<volScalarField> trho = this->rho();
+                const volScalarField &rho = trho();
+                const label nSpecies = this->Y().size();
+                static constexpr double Ru = 8.31446261815324;
+
+                forAll(Et_, celli)
+                {
+                    double Rmix = 0.0;
+                    for (label i = 0; i < nSpecies; ++i)
+                    {
+                        double Yi = this->Y()[i][celli];
+                        if (Yi > SMALL)
+                        {
+                            // FIX: Use Mutation++ Mw (kg/mol) instead of OpenFOAM Wi
+                            // This bypasses the linker error and matches Ru units.
+                            scalar Mw = mutationMixPtr_->speciesMw(i);
+                            Rmix += Yi * Ru / Mw;
+                        }
+                    }
+
+                    if (Rmix > SMALL && rho[celli] > SMALL)
+                        Et_[celli] = rho[celli] * 1.5 * Rmix * T[celli];
+                    else
+                        Et_[celli] = 1.0;
+
+                    Ev_[celli] = 0.0;
+                }
+            }
         }
 
-        volScalarField &Tve() override
-        {
-            return Tve_;
-        }
-
-        const volScalarField &Tve() const override
-        {
-            return Tve_;
-        }
+        volScalarField &Tve() override { return Tve_; }
+        const volScalarField &Tve() const override { return Tve_; }
 
         void correctTve(const volScalarField &newTve) override
         {
-            // 1) Basic safety checks (optional but useful)
-            if (newTve.size() != Tve_.size())
-            {
-                FatalErrorInFunction
-                    << "Tve size mismatch: newTve=" << newTve.size()
-                    << " Tve_=" << Tve_.size()
-                    << exit(FatalError);
-            }
-
-            if (newTve.dimensions() != Tve_.dimensions())
-            {
-                FatalErrorInFunction
-                    << "Tve dimensions mismatch: newTve=" << newTve.dimensions()
-                    << " Tve_=" << Tve_.dimensions()
-                    << exit(FatalError);
-            }
-
-            // 2) Copy INTERNAL values (raw)
-            forAll(Tve_.internalFieldRef(), i)
-            {
-                Tve_.internalFieldRef()[i] = newTve.internalField()[i];
-            }
-
-            // 3) Copy BOUNDARY values (raw)
-            forAll(Tve_.boundaryFieldRef(), patchi)
-            {
-                forAll(Tve_.boundaryFieldRef()[patchi], facei)
-                {
-                    Tve_.boundaryFieldRef()[patchi][facei] =
-                        newTve.boundaryField()[patchi][facei];
-                }
-            }
-
-            // 4) Enforce BC consistency
+            Tve_ = newTve;
             Tve_.correctBoundaryConditions();
         }
 
-        // Override correct() to use mutationMixture
         virtual void correct_he() override
         {
             Info << "highEnthalpyMulticomponentThermo::composite::correct() called" << endl;
@@ -234,53 +178,55 @@ namespace Foam
             volScalarField &T = this->T_;
             volScalarField &Tve = this->Tve_;
             volScalarField &p = this->p_;
+            volScalarField &e = this->he();
 
-            // rho() returns tmp<volScalarField> in many implementations
             tmp<volScalarField> trho = this->rho();
             const volScalarField &rho = trho();
 
-            // Species count (volScalarField list)
             const label nSpecies = this->Y().size();
-
-            // Universal gas constant
             static constexpr double Ru = 8.31446261815324;
-
-            // Build a slicer for Y fields (OpenFOAM pattern you already use)
-            auto Yslicer = this->Yslicer();
 
             forAll(T, celli)
             {
-                // Grab mass fractions for this cell
                 std::vector<double> Y_cell(nSpecies, 0.0);
                 for (label i = 0; i < nSpecies; ++i)
                     Y_cell[i] = this->Y()[i][celli];
 
-                // Compute Rmix = sum(Yi * Ru/Mwi)
                 double Rmix = 0.0;
                 for (label i = 0; i < nSpecies; ++i)
                 {
                     if (Y_cell[i] <= 0.0)
                         continue;
-                    const scalar Mw = this->Wi(i).value(); // kg/mol
+                    // FIX: Use Mutation++ Mw here too
+                    const scalar Mw = mutationMixPtr_->speciesMw(i);
                     if (Mw > 0.0)
                         Rmix += Y_cell[i] * Ru / Mw;
                 }
 
                 if (Rmix <= SMALL || rho[celli] <= SMALL)
                 {
-                    // fallback
                     Tve[celli] = T[celli];
                     continue;
                 }
 
-                // Build energies from current temperatures
-                // (translation-only model consistent with your wrapper)
-                double Et = rho[celli] * 1.5 * Rmix * T[celli];
+                double Etot_new = rho[celli] * e[celli];
+                double Et_prev = Et_[celli];
+                double Ev_prev = Ev_[celli];
 
-                // IMPORTANT: you previously used a "simplified" Ev.
-                // Better: store Ev as a field later.
-                // For now, keep a conservative "Ev = 0" or use previous cell Ev if you add it.
-                double Ev = 0.0;
+                if (Et_prev + Ev_prev <= SMALL)
+                {
+                    Et_prev = rho[celli] * 1.5 * Rmix * T[celli];
+                    Ev_prev = 0.0;
+                }
+
+                double scale = 1.0;
+                if ((Et_prev + Ev_prev) > SMALL)
+                {
+                    scale = Etot_new / (Et_prev + Ev_prev);
+                }
+
+                double Et_input = Et_prev * scale;
+                double Ev_input = Ev_prev * scale;
 
                 double Ttr = T[celli];
                 double Tv = Tve[celli];
@@ -291,20 +237,21 @@ namespace Foam
                         relaxationTimeStep_,
                         rho[celli],
                         Y_cell,
-                        Et,
-                        Ev,
+                        Et_input,
+                        Ev_input,
                         Ttr,
                         Tv);
 
                     T[celli] = Ttr;
                     Tve[celli] = Tv;
-
-                    // Optional: keep pressure consistent
                     p[celli] = rho[celli] * Rmix * T[celli];
+                    e[celli] = (Et_input + Ev_input) / rho[celli];
+
+                    Et_[celli] = Et_input;
+                    Ev_[celli] = Ev_input;
                 }
                 else
                 {
-                    // fallback
                     T[celli] = p[celli] / (rho[celli] * Rmix);
                     Tve[celli] = T[celli];
                 }
@@ -313,17 +260,10 @@ namespace Foam
             T.correctBoundaryConditions();
             Tve.correctBoundaryConditions();
             p.correctBoundaryConditions();
+            Et_.correctBoundaryConditions();
+            Ev_.correctBoundaryConditions();
         }
     };
-
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 } // End namespace Foam
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 #endif
-
-// ************************************************************************* //
