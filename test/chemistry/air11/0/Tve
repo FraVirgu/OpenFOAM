@@ -15,21 +15,10 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 dimensions      [0 0 0 1 0 0 0];
-internalField   uniform 15000;
+internalField   uniform 2000;
 boundaryField
 {
-    left
-    {
-        type            zeroGradient;
-    }
-    right
-    {
-        type            zeroGradient;
-    }
-    sides
-    {
-        type            empty;
-    }
+    allBoundaries { type empty; }
 }
 
 

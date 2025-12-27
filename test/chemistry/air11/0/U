@@ -13,25 +13,11 @@ FoamFile
     object      U;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 dimensions      [0 1 -1 0 0 0 0];
-
 internalField   uniform (0 0 0);
-
 boundaryField
 {
-    left
-    {
-        type            zeroGradient;
-    }
-    right
-    {
-        type            zeroGradient;
-    }
-    sides
-    {
-        type            empty;
-    }
+    allBoundaries { type empty; }
 }
 
 

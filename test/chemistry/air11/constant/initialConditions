@@ -17,8 +17,8 @@ FoamFile
 constantProperty pressure;
 constantProperty pressure;
 
-p           202650;  // Pa
-T           300;     // K
+ p           101325;  // Pa (1 atm)
+ T           12000;   // K
 fractionBasis  mole;
 fractionBasis  mole;
 
