@@ -71,10 +71,7 @@ void mutationMixture::step(
 {
     const int ns = mix_.nSpecies();
 
-    // --------------------------------------------------------
-    // Recover translational temperature (PAPER MODEL)
-    // e_tr = rho * (1.5 * Rmix * Ttr)
-    // --------------------------------------------------------
+    // Compute Rmix (still needed for any consistency checks if you want)
     double Rmix = 0.0;
     for (int s = 0; s < ns; ++s)
     {
@@ -82,24 +79,30 @@ void mutationMixture::step(
             Rmix += Y[s] * Ru / mix_.speciesMw(s);
     }
 
-    Ttr = Et / (rho * 1.5 * Rmix);
-
-    // --------------------------------------------------------
-    // Recover vibrational temperature
-    // --------------------------------------------------------
-    Tv = invertTv(Ev, rho, Y);
+    // Use the temperatures provided by the caller (OpenFOAM)
+    if (!(std::isfinite(Ttr) && Ttr > 0.0))
+        Ttr = 300.0;
+    if (!(std::isfinite(Tv) && Tv > 0.0))
+        Tv = Ttr;
 
     // --------------------------------------------------------
     // Set Mutation++ state
     // --------------------------------------------------------
     for (int s = 0; s < ns; ++s)
-        rho_i_[s] = rho * Y[s];
+    {
+        rho_i_[s] = std::max(rho * Y[s], 1e-12);
+    }
 
     Tstate_[0] = Ttr;
     Tstate_[1] = Tv;
 
     // State model = 1 → density + temperatures
     mix_.setState(rho_i_.data(), Tstate_.data(), 1);
+    const double pIdeal = rho * Rmix * Ttr;
+    std::cerr << "ideal p=" << pIdeal << "\n";
+
+    std::cerr << "ideal p=" << pIdeal
+              << " Ttr=" << Ttr << " Tv=" << Tv << "\n";
 
     // --------------------------------------------------------
     // Vibrational energy source term Qve
@@ -114,6 +117,25 @@ void mutationMixture::step(
     // --------------------------------------------------------
     Ev += Qve * dt;
     Et -= Qve * dt;
+}
+
+double mutationMixture::EvFromTv(double Tv, double rho, const std::vector<double> &Y) const
+{
+    double Ev = 0.0;
+    for (const auto &v : vibData_)
+    {
+        const int s = v.speciesIndex;
+        if (Y[s] <= 0.0)
+            continue;
+
+        const double Rs = Ru / v.M;
+        const double x = v.theta_v / Tv;
+        const double ex = std::exp(x);
+
+        const double ev = Rs * v.theta_v / (ex - 1.0); // J/kg
+        Ev += rho * Y[s] * ev;                         // J/m3
+    }
+    return Ev;
 }
 
 // ------------------------------------------------------------

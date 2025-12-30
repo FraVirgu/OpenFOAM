@@ -71,6 +71,8 @@ public:
         return mix_.speciesMw(i);
     }
 
+    double EvFromTv(double Tv, double rho, const std::vector<double> &Y) const;
+
 private:
     // Mutation++ mixture
     Mutation::Mixture mix_;

@@ -15,6 +15,7 @@ License
 #include "HighEnthalpyMulticomponentThermo.H"
 #include "psiThermo.H"
 #include "fluidMulticomponentThermo.H"
+#include <cmath>
 
 namespace Foam
 {
@@ -74,6 +75,7 @@ namespace Foam
     private:
         autoPtr<mutationMixture> mutationMixPtr_;
         scalar relaxationTimeStep_;
+        List<label> ofToMut_;
 
     public:
         volScalarField Tve_;
@@ -120,6 +122,26 @@ namespace Foam
 
             Info << "Initializing mutationMixture with mechanism: " << mixtureName << endl;
             mutationMixPtr_.reset(new mutationMixture(mixtureName.c_str()));
+            const wordList &ofNames = mixture.specieNames(); // OpenFOAM species names
+            ofToMut_.setSize(ofNames.size(), -1);
+
+            forAll(ofNames, iOF)
+            {
+                const std::string n = ofNames[iOF];
+                const int iMut = mutationMixPtr_->speciesIndex(n); // your wrapper has this in the test
+
+                if (iMut < 0)
+                {
+                    WarningInFunction
+                        << "OpenFOAM species " << ofNames[iOF]
+                        << " not found in Mutation++ mechanism " << mixtureName
+                        << " -> it will be ignored in VT step." << nl;
+                }
+                else
+                {
+                    ofToMut_[iOF] = iMut;
+                }
+            }
 
             relaxationTimeStep_ = dict.lookupOrDefault<scalar>("relaxationTimeStep", 1.0e-8);
             Info << "Relaxation time step: " << relaxationTimeStep_ << " s" << endl;
@@ -173,7 +195,7 @@ namespace Foam
 
         virtual void correct_he() override
         {
-            Info << "highEnthalpyMulticomponentThermo::composite::correct() called" << endl;
+            Info << "highEnthalpyMulticomponentThermo::composite::correct_he() called" << endl;
 
             volScalarField &T = this->T_;
             volScalarField &Tve = this->Tve_;
@@ -183,78 +205,161 @@ namespace Foam
             tmp<volScalarField> trho = this->rho();
             const volScalarField &rho = trho();
 
-            const label nSpecies = this->Y().size();
-            static constexpr double Ru = 8.31446261815324;
+            const label nsOF = this->Y().size();
+            const label nsMut = mutationMixPtr_->nSpecies();
+
+            auto finite = [](double x)
+            { return std::isfinite(x); };
 
             forAll(T, celli)
             {
-                std::vector<double> Y_cell(nSpecies, 0.0);
-                for (label i = 0; i < nSpecies; ++i)
-                    Y_cell[i] = this->Y()[i][celli];
-
-                double Rmix = 0.0;
-                for (label i = 0; i < nSpecies; ++i)
+                if (!mutationMixPtr_.valid())
                 {
-                    if (Y_cell[i] <= 0.0)
-                        continue;
-                    // FIX: Use Mutation++ Mw here too
-                    const scalar Mw = mutationMixPtr_->speciesMw(i);
-                    if (Mw > 0.0)
-                        Rmix += Y_cell[i] * Ru / Mw;
+                    // Fallback: just keep 1T
+                    Tve[celli] = T[celli];
+                    continue;
                 }
 
-                if (Rmix <= SMALL || rho[celli] <= SMALL)
+                if (rho[celli] <= SMALL || !finite(rho[celli]))
                 {
                     Tve[celli] = T[celli];
                     continue;
                 }
 
-                double Etot_new = rho[celli] * e[celli];
+                // --- Build Y in Mutation++ ordering
+                std::vector<double> Y_mut(nsMut, 0.0);
+
+                for (label iOF = 0; iOF < nsOF; ++iOF)
+                {
+                    const label iMut = ofToMut_[iOF];
+                    if (iMut < 0)
+                        continue;
+
+                    const double y = this->Y()[iOF][celli];
+                    if (finite(y))
+                        Y_mut[iMut] += y;
+                }
+
+                // --- Clip/renormalize Y_mut
+                double sumY = 0.0;
+                for (auto &y : Y_mut)
+                {
+                    if (!finite(y))
+                        y = 0.0;
+                    y = std::max(y, 0.0);
+                    sumY += y;
+                }
+
+                if (sumY <= SMALL || !finite(sumY))
+                {
+                    Tve[celli] = T[celli];
+                    continue;
+                }
+
+                for (auto &y : Y_mut)
+                    y /= sumY;
+
+                // --- Compute Rmix using Mutation++ MWs (Mutation ordering)
+                static constexpr double Ru = 8.31446261815324; // J/mol/K
+                double Rmix = 0.0;
+
+                for (label iMut = 0; iMut < nsMut; ++iMut)
+                {
+                    const double Yi = Y_mut[iMut];
+                    if (Yi <= SMALL)
+                        continue;
+
+                    const double Mw = mutationMixPtr_->speciesMw(iMut); // kg/mol
+                    if (Mw > SMALL && finite(Mw))
+                    {
+                        Rmix += Yi * Ru / Mw; // J/kg/K
+                    }
+                }
+
+                if (Rmix <= SMALL || !finite(Rmix))
+                {
+                    Tve[celli] = T[celli];
+                    continue;
+                }
+
+                // --- Energy bookkeeping (Et/Ev are volumetric J/m3 in your wrapper)
+                const double Etot_new = rho[celli] * e[celli];
+
                 double Et_prev = Et_[celli];
                 double Ev_prev = Ev_[celli];
 
-                if (Et_prev + Ev_prev <= SMALL)
+                // If Et/Ev not initialized sensibly, rebuild Et from T
+                // (avoids the Et_prev=1 -> huge scale behavior)
+                if (
+                    !finite(Et_prev) || !finite(Ev_prev) ||
+                    (Et_prev + Ev_prev) <= 0.1 * std::max(Etot_new, 0.0) || // heuristic
+                    (Et_prev + Ev_prev) <= SMALL)
                 {
-                    Et_prev = rho[celli] * 1.5 * Rmix * T[celli];
+                    const double Ttr0 = std::max(double(T[celli]), 300.0);
+                    Et_prev = rho[celli] * 1.5 * Rmix * Ttr0;
                     Ev_prev = 0.0;
                 }
 
                 double scale = 1.0;
-                if ((Et_prev + Ev_prev) > SMALL)
+                if ((Et_prev + Ev_prev) > SMALL && finite(Etot_new) && Etot_new > SMALL)
                 {
                     scale = Etot_new / (Et_prev + Ev_prev);
                 }
+                if (!finite(scale) || scale <= 0.0)
+                    scale = 1.0;
 
-                double Et_input = Et_prev * scale;
-                double Ev_input = Ev_prev * scale;
+                // --- Temperatures
+                double Ttr = double(T[celli]);
+                double Tv = double(Tve[celli]);
 
-                double Ttr = T[celli];
-                double Tv = Tve[celli];
+                double Ev_input = mutationMixPtr_->EvFromTv(Tv, rho[celli], Y_mut);
+                double Et_input = rho[celli] * e[celli] - Ev_input;
 
-                if (mutationMixPtr_.valid())
+                if (Et_input < 0)
                 {
-                    mutationMixPtr_->step(
-                        relaxationTimeStep_,
-                        rho[celli],
-                        Y_cell,
-                        Et_input,
-                        Ev_input,
-                        Ttr,
-                        Tv);
-
-                    T[celli] = Ttr;
-                    Tve[celli] = Tv;
-                    p[celli] = rho[celli] * Rmix * T[celli];
-                    e[celli] = (Et_input + Ev_input) / rho[celli];
-
-                    Et_[celli] = Et_input;
-                    Ev_[celli] = Ev_input;
+                    Et_input = rho[celli] * e[celli];
+                    Ev_input = 0;
                 }
-                else
+
+                // Clamp (prevents MW correlation singularities)
+                const double Tmin = 50.0;
+                Ttr = std::max(Ttr, Tmin);
+                Tv = std::max(Tv, Tmin);
+
+                // --- Final hard check before calling Mutation++
+                if (
+                    !finite(Ttr) || !finite(Tv) ||
+                    !finite(Et_input) || !finite(Ev_input))
                 {
-                    T[celli] = p[celli] / (rho[celli] * Rmix);
-                    Tve[celli] = T[celli];
+                    FatalErrorInFunction
+                        << "Non-finite state before Mutation++ step at cell " << celli << nl
+                        << "rho=" << rho[celli] << " Rmix=" << Rmix << nl
+                        << "Ttr=" << Ttr << " Tv=" << Tv << nl
+                        << "Et=" << Et_input << " Ev=" << Ev_input << nl
+                        << exit(FatalError);
                 }
+
+                Info << "DBG cell " << celli << nl << "rho=" << rho[celli] << " finite=" << finite(rho[celli]) << nl << "Ttr=" << Ttr << " finite=" << finite(Ttr) << nl << "Tv=" << Tv << " finite=" << finite(Tv) << nl << "Rmix=" << Rmix << " finite=" << finite(Rmix) << nl << "Etot_new=" << Etot_new << " finite=" << finite(Etot_new) << nl << "Et_prev=" << Et_prev << " finite=" << finite(Et_prev) << nl << "Ev_prev=" << Ev_prev << " finite=" << finite(Ev_prev) << nl << "scale=" << scale << " finite=" << finite(scale) << nl << "Et_input=" << Et_input << " finite=" << finite(Et_input) << nl << "Ev_input=" << Ev_input << " finite=" << finite(Ev_input) << nl << endl;
+                const scalar dtSolver = this->mesh().time().deltaTValue();
+                Info << "Using solver dt = " << dtSolver << endl;
+                // --- Call Mutation++ with properly ordered composition
+                mutationMixPtr_->step(
+                    dtSolver,
+                    rho[celli],
+                    Y_mut,
+                    Et_input,
+                    Ev_input,
+                    Ttr,
+                    Tv);
+
+                // --- Write back
+                T[celli] = Ttr;
+                Tve[celli] = Tv;
+                p[celli] = rho[celli] * Rmix * Ttr;
+                e[celli] = (Et_input + Ev_input) / rho[celli];
+
+                Et_[celli] = Et_input;
+                Ev_[celli] = Ev_input;
             }
 
             T.correctBoundaryConditions();
