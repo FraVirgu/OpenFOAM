@@ -211,11 +211,17 @@ namespace Foam
             auto finite = [](double x)
             { return std::isfinite(x); };
 
+            // Use the actual solver time-step for coupling
+            const scalar dtSolver = this->mesh().time().deltaTValue();
+
+            static constexpr double Ru = 8.31446261815324; // J/mol/K
+            const double Tmin = 50.0;
+
             forAll(T, celli)
             {
                 if (!mutationMixPtr_.valid())
                 {
-                    // Fallback: just keep 1T
+                    // Fallback: 1-T
                     Tve[celli] = T[celli];
                     continue;
                 }
@@ -226,7 +232,9 @@ namespace Foam
                     continue;
                 }
 
-                // --- Build Y in Mutation++ ordering
+                // ------------------------------------------------------------
+                // 1) Build Y in Mutation++ ordering (name-mapped via ofToMut_)
+                // ------------------------------------------------------------
                 std::vector<double> Y_mut(nsMut, 0.0);
 
                 for (label iOF = 0; iOF < nsOF; ++iOF)
@@ -240,7 +248,7 @@ namespace Foam
                         Y_mut[iMut] += y;
                 }
 
-                // --- Clip/renormalize Y_mut
+                // Clip + renormalize
                 double sumY = 0.0;
                 for (auto &y : Y_mut)
                 {
@@ -259,10 +267,10 @@ namespace Foam
                 for (auto &y : Y_mut)
                     y /= sumY;
 
-                // --- Compute Rmix using Mutation++ MWs (Mutation ordering)
-                static constexpr double Ru = 8.31446261815324; // J/mol/K
+                // ------------------------------------------------------------
+                // 2) Compute Rmix (Mutation MWs, Mutation ordering)
+                // ------------------------------------------------------------
                 double Rmix = 0.0;
-
                 for (label iMut = 0; iMut < nsMut; ++iMut)
                 {
                     const double Yi = Y_mut[iMut];
@@ -282,84 +290,117 @@ namespace Foam
                     continue;
                 }
 
-                // --- Energy bookkeeping (Et/Ev are volumetric J/m3 in your wrapper)
-                const double Etot_new = rho[celli] * e[celli];
+                // ------------------------------------------------------------
+                // 3) Total energy density from OpenFOAM (authoritative)
+                // ------------------------------------------------------------
+                const double Etot = rho[celli] * e[celli];
 
-                double Et_prev = Et_[celli];
-                double Ev_prev = Ev_[celli];
-
-                // If Et/Ev not initialized sensibly, rebuild Et from T
-                // (avoids the Et_prev=1 -> huge scale behavior)
-                if (
-                    !finite(Et_prev) || !finite(Ev_prev) ||
-                    (Et_prev + Ev_prev) <= 0.1 * std::max(Etot_new, 0.0) || // heuristic
-                    (Et_prev + Ev_prev) <= SMALL)
+                if (!finite(Etot) || Etot <= SMALL)
                 {
-                    const double Ttr0 = std::max(double(T[celli]), 300.0);
-                    Et_prev = rho[celli] * 1.5 * Rmix * Ttr0;
-                    Ev_prev = 0.0;
+                    Tve[celli] = T[celli];
+                    continue;
                 }
 
-                double scale = 1.0;
-                if ((Et_prev + Ev_prev) > SMALL && finite(Etot_new) && Etot_new > SMALL)
+                // ------------------------------------------------------------
+                // 4) Use stored Et_/Ev_ as the evolving state (DO NOT rebuild every step)
+                // ------------------------------------------------------------
+                double Et_local = Et_[celli];
+                double Ev_local = Ev_[celli];
+
+                // Initialize if missing/invalid
+                if (!finite(Et_local) || !finite(Ev_local) || (Et_local + Ev_local) <= SMALL)
                 {
-                    scale = Etot_new / (Et_prev + Ev_prev);
-                }
-                if (!finite(scale) || scale <= 0.0)
-                    scale = 1.0;
+                    double Tv0 = std::max(double(Tve[celli]), 300.0);
 
-                // --- Temperatures
-                double Ttr = double(T[celli]);
-                double Tv = double(Tve[celli]);
+                    Ev_local = mutationMixPtr_->EvFromTv(Tv0, rho[celli], Y_mut);
+                    if (!finite(Ev_local) || Ev_local < 0.0)
+                        Ev_local = 0.0;
 
-                double Ev_input = mutationMixPtr_->EvFromTv(Tv, rho[celli], Y_mut);
-                double Et_input = rho[celli] * e[celli] - Ev_input;
-
-                if (Et_input < 0)
-                {
-                    Et_input = rho[celli] * e[celli];
-                    Ev_input = 0;
-                }
-
-                // Clamp (prevents MW correlation singularities)
-                const double Tmin = 50.0;
-                Ttr = std::max(Ttr, Tmin);
-                Tv = std::max(Tv, Tmin);
-
-                // --- Final hard check before calling Mutation++
-                if (
-                    !finite(Ttr) || !finite(Tv) ||
-                    !finite(Et_input) || !finite(Ev_input))
-                {
-                    FatalErrorInFunction
-                        << "Non-finite state before Mutation++ step at cell " << celli << nl
-                        << "rho=" << rho[celli] << " Rmix=" << Rmix << nl
-                        << "Ttr=" << Ttr << " Tv=" << Tv << nl
-                        << "Et=" << Et_input << " Ev=" << Ev_input << nl
-                        << exit(FatalError);
+                    // Keep Ev below total energy
+                    Ev_local = std::min(Ev_local, 0.99 * Etot);
+                    Et_local = Etot - Ev_local;
                 }
 
-                Info << "DBG cell " << celli << nl << "rho=" << rho[celli] << " finite=" << finite(rho[celli]) << nl << "Ttr=" << Ttr << " finite=" << finite(Ttr) << nl << "Tv=" << Tv << " finite=" << finite(Tv) << nl << "Rmix=" << Rmix << " finite=" << finite(Rmix) << nl << "Etot_new=" << Etot_new << " finite=" << finite(Etot_new) << nl << "Et_prev=" << Et_prev << " finite=" << finite(Et_prev) << nl << "Ev_prev=" << Ev_prev << " finite=" << finite(Ev_prev) << nl << "scale=" << scale << " finite=" << finite(scale) << nl << "Et_input=" << Et_input << " finite=" << finite(Et_input) << nl << "Ev_input=" << Ev_input << " finite=" << finite(Ev_input) << nl << endl;
-                const scalar dtSolver = this->mesh().time().deltaTValue();
-                Info << "Using solver dt = " << dtSolver << endl;
-                // --- Call Mutation++ with properly ordered composition
-                mutationMixPtr_->step(
-                    dtSolver,
-                    rho[celli],
-                    Y_mut,
-                    Et_input,
-                    Ev_input,
-                    Ttr,
-                    Tv);
+                // Positivity
+                Et_local = std::max(Et_local, 0.0);
+                Ev_local = std::max(Ev_local, 0.0);
 
-                // --- Write back
-                T[celli] = Ttr;
-                Tve[celli] = Tv;
-                p[celli] = rho[celli] * Rmix * Ttr;
-                e[celli] = (Et_input + Ev_input) / rho[celli];
+                // Enforce conservation to match OpenFOAM energy
+                const double sumE0 = Et_local + Ev_local;
+                if (sumE0 > SMALL && finite(sumE0))
+                {
+                    const double fac = Etot / sumE0;
+                    Et_local *= fac;
+                    Ev_local *= fac;
+                }
+                else
+                {
+                    // fallback: all translational
+                    Et_local = Etot;
+                    Ev_local = 0.0;
+                }
 
-                Et_[celli] = Et_input;
-                Ev_[celli] = Ev_input;
+                // ------------------------------------------------------------
+                // 5) Temperatures passed to Mutation++ (caller-provided)
+                // ------------------------------------------------------------
+                double Ttr = std::max(double(T[celli]), Tmin);
+                double Tv = std::max(double(Tve[celli]), Tmin);
+
+                if (!finite(Ttr) || !finite(Tv))
+                {
+                    Tve[celli] = T[celli];
+                    continue;
+                }
+
+                // ------------------------------------------------------------
+                // 6) Advance VT exchange using Mutation++ (updates Et_local/Ev_local)
+                // ------------------------------------------------------------
+                mutationMixPtr_->step(dtSolver, rho[celli], Y_mut, Et_local, Ev_local, Ttr, Tv);
+
+                // After update: enforce positivity and conservation again
+                Et_local = std::max(Et_local, 0.0);
+                Ev_local = std::max(Ev_local, 0.0);
+
+                const double sumE1 = Et_local + Ev_local;
+                if (sumE1 > SMALL && finite(sumE1))
+                {
+                    const double fac = Etot / sumE1;
+                    Et_local *= fac;
+                    Ev_local *= fac;
+                }
+                else
+                {
+                    Et_local = Etot;
+                    Ev_local = 0.0;
+                }
+
+                // ------------------------------------------------------------
+                // 7) Write back fields
+                // ------------------------------------------------------------
+                Et_[celli] = Et_local;
+                Ev_[celli] = Ev_local;
+
+                // Keep e consistent with Et+Ev (still total internal energy / rho)
+                e[celli] = (Et_local + Ev_local) / rho[celli];
+
+                // Pressure from translational temperature
+                p[celli] = rho[celli] * Rmix * T[celli];
+
+                // OPTIONAL (recommended): update Tve from Ev so it evolves and you can see it
+                // If your wrapper does not expose invertTv publicly, add a public TvFromEv wrapper.
+                double Tv_new = mutationMixPtr_->invertTv(Ev_local, rho[celli], Y_mut);
+                if (finite(Tv_new) && Tv_new > Tmin)
+                {
+                    Tve[celli] = Tv_new;
+                }
+
+                // Debug one cell if you want
+                if (celli == 0)
+                {
+                    Info << "DBG cell0: Et=" << Et_local << " Ev=" << Ev_local
+                         << " Etot=" << Etot << " T=" << T[celli] << " Tve=" << Tve[celli]
+                         << " dt=" << dtSolver << nl;
+                }
             }
 
             T.correctBoundaryConditions();

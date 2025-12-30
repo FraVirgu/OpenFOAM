@@ -73,6 +73,12 @@ public:
 
     double EvFromTv(double Tv, double rho, const std::vector<double> &Y) const;
 
+    // Invert Ev -> Tv (Newton method, paper definition)
+    double invertTv(
+        double Ev_target,
+        double rho,
+        const std::vector<double> &Y) const;
+
 private:
     // Mutation++ mixture
     Mutation::Mixture mix_;
@@ -83,12 +89,6 @@ private:
 
     // Paper vibrational species data
     std::vector<VibData> vibData_;
-
-    // Invert Ev -> Tv (Newton method, paper definition)
-    double invertTv(
-        double Ev_target,
-        double rho,
-        const std::vector<double> &Y) const;
 };
 
 #endif
