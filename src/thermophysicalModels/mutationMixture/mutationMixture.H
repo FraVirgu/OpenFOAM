@@ -77,7 +77,21 @@ public:
     double invertTv(
         double Ev_target,
         double rho,
-        const std::vector<double> &Y) const;
+        const std::vector<double> &Y,
+        double Tv_init) const;
+
+    double invertTtr(
+        double Et_target, // J/m^3 (translational/heavy energy density)
+        double rho,
+        const std::vector<double> &Y,
+        double Tv, // keep Tv fixed during this inversion
+        double Ttr_init);
+
+    double EtFromState_(
+        double Ttr,
+        double Tv,
+        double rho,
+        const std::vector<double> &Y);
 
 private:
     // Mutation++ mixture

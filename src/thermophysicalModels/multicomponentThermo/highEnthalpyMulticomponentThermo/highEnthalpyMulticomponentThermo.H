@@ -383,16 +383,37 @@ namespace Foam
                 // Keep e consistent with Et+Ev (still total internal energy / rho)
                 e[celli] = (Et_local + Ev_local) / rho[celli];
 
-                // Pressure from translational temperature
-                p[celli] = rho[celli] * Rmix * T[celli];
-
                 // OPTIONAL (recommended): update Tve from Ev so it evolves and you can see it
                 // If your wrapper does not expose invertTv publicly, add a public TvFromEv wrapper.
-                double Tv_new = mutationMixPtr_->invertTv(Ev_local, rho[celli], Y_mut);
+                // --- Update Tv from Ev (use previous Tve as initial guess)
+                double Tv_new = mutationMixPtr_->invertTv(
+                    Ev_local,
+                    rho[celli],
+                    Y_mut,
+                    double(Tve[celli]) // Tv_init
+                );
+
                 if (finite(Tv_new) && Tv_new > Tmin)
                 {
                     Tve[celli] = Tv_new;
                 }
+
+                // --- Update Ttr from Et (use updated Tv, previous T as initial guess)
+                double Ttr_new = mutationMixPtr_->invertTtr(
+                    Et_local,
+                    rho[celli],
+                    Y_mut,
+                    double(Tve[celli]), // Tv_fixed
+                    double(T[celli])    // Ttr_init
+                );
+
+                if (finite(Ttr_new) && Ttr_new > Tmin)
+                {
+                    T[celli] = Ttr_new;
+                }
+
+                // --- Now compute pressure using UPDATED T
+                p[celli] = rho[celli] * Rmix * T[celli];
 
                 // Debug one cell if you want
                 if (celli == 0)

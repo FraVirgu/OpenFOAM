@@ -144,10 +144,24 @@ double mutationMixture::EvFromTv(double Tv, double rho, const std::vector<double
 double mutationMixture::invertTv(
     double Ev_target,
     double rho,
-    const std::vector<double> &Y) const
+    const std::vector<double> &Y,
+    double Tv_init) const
 {
-    double Tv = 3000.0;
+    // Quick exits
+    if (!(std::isfinite(Ev_target)) || Ev_target <= 0.0)
+        return 300.0;
 
+    double Tv = Tv_init;
+    if (!(std::isfinite(Tv) && Tv > 0.0))
+        Tv = 3000.0;
+
+    // clamp initial
+    if (Tv < 300.0)
+        Tv = 300.0;
+    if (Tv > 25000.0)
+        Tv = 25000.0;
+
+    // Newton with damping
     for (int it = 0; it < 30; ++it)
     {
         double Ev = 0.0;
@@ -156,32 +170,54 @@ double mutationMixture::invertTv(
         for (const auto &v : vibData_)
         {
             const int s = v.speciesIndex;
-            if (Y[s] <= 0.0)
+            const double Ys = Y[s];
+            if (Ys <= 0.0)
                 continue;
 
             const double Rs = Ru / v.M;
-            const double x = v.theta_v / Tv;
+
+            // x = theta/T
+            double x = v.theta_v / Tv;
+            // avoid exp overflow in double
+            if (x > 700.0)
+                x = 700.0;
+
+            // expm1(x) = exp(x)-1, stable for small x
+            const double denom = std::expm1(x);
+            if (!(std::isfinite(denom)) || denom <= 0.0)
+                continue;
+
+            const double ev = Rs * v.theta_v / denom; // J/kg
+
             const double ex = std::exp(x);
-
-            const double ev =
-                Rs * v.theta_v / (ex - 1.0);
-
             const double devdT =
                 Rs * v.theta_v *
                 (ex * v.theta_v / (Tv * Tv)) /
-                ((ex - 1.0) * (ex - 1.0));
+                (denom * denom);
 
-            Ev += rho * Y[s] * ev;
-            dEv += rho * Y[s] * devdT;
+            Ev += rho * Ys * ev;     // J/m^3
+            dEv += rho * Ys * devdT; // J/m^3/K
         }
 
-        const double f = Ev - Ev_target;
-        if (std::abs(f) < 1e-6 * std::max(1.0, Ev_target))
+        if (!(std::isfinite(Ev) && std::isfinite(dEv)) || dEv <= 0.0)
             break;
 
-        Tv -= f / dEv;
+        const double f = Ev - Ev_target;
 
-        // C++11-safe clamp
+        if (std::abs(f) < 1e-8 * std::max(1.0, Ev_target))
+            break;
+
+        double step = f / dEv;
+
+        // damping: don’t jump too far
+        const double maxStep = 0.5 * Tv;
+        if (step > maxStep)
+            step = maxStep;
+        if (step < -maxStep)
+            step = -maxStep;
+
+        Tv -= step;
+
         if (Tv < 300.0)
             Tv = 300.0;
         if (Tv > 25000.0)
@@ -189,4 +225,146 @@ double mutationMixture::invertTv(
     }
 
     return Tv;
+}
+
+// -----------------------------------------------------------------------------
+// YOU MUST IMPLEMENT THIS using Mutation++ calls you have available.
+// It must return translational/heavy-mode energy density Et(Ttr,Tv,rho,Y) in J/m^3.
+// -----------------------------------------------------------------------------
+double mutationMixture::EtFromState_(
+    double Ttr,
+    double Tv,
+    double rho,
+    const std::vector<double> &Y)
+{
+    // Example skeleton: setState then query a property.
+    // You MUST replace the "TODO" part with your actual mix_ getter.
+
+    for (int s = 0; s < mix_.nSpecies(); ++s)
+        rho_i_[s] = std::max(rho * Y[s], 1e-12);
+
+    Tstate_[0] = Ttr;
+    Tstate_[1] = Tv;
+
+    mix_.setState(rho_i_.data(), Tstate_.data(), 1);
+
+    // Total mixture energy per mass from Mutation++ (J/kg)
+    const double eTot_mass = mix_.mixtureEnergyMass();
+
+    // Convert to per volume (J/m^3)
+    const double ETot_vol = rho * eTot_mass;
+
+    // Subtract your vib energy model (J/m^3) to get Et reservoir consistent with your split
+    const double Ev_vol = EvFromTv(Tv, rho, Y);
+
+    return std::max(ETot_vol - Ev_vol, 0.0);
+}
+
+double mutationMixture::invertTtr(
+    double Et_target,
+    double rho,
+    const std::vector<double> &Y,
+    double Tv,
+    double Ttr_init)
+{
+    if (!(std::isfinite(Et_target)) || Et_target <= 0.0)
+        return 300.0;
+
+    double Tlo = 50.0;
+    double Thi = 25000.0;
+
+    double T = Ttr_init;
+    if (!(std::isfinite(T) && T > 0.0))
+        T = 3000.0;
+
+    if (T < Tlo)
+        T = Tlo;
+    if (T > Thi)
+        T = Thi;
+
+    auto F = [&](double Ttr) -> double
+    {
+        const double Et_model = EtFromState_(Ttr, Tv, rho, Y);
+        return Et_model - Et_target;
+    };
+
+    // Build a bracket [a,b] if possible
+    double a = std::max(Tlo, 0.5 * T);
+    double b = std::min(Thi, 2.0 * T);
+
+    double fa = 0.0, fb = 0.0;
+    bool bracketed = false;
+
+    for (int k = 0; k < 20; ++k)
+    {
+        fa = F(a);
+        fb = F(b);
+        if (std::isfinite(fa) && std::isfinite(fb) && (fa * fb <= 0.0))
+        {
+            bracketed = true;
+            break;
+        }
+        a = std::max(Tlo, a * 0.7);
+        b = std::min(Thi, b * 1.3);
+        if (a <= Tlo && b >= Thi)
+            break;
+    }
+
+    // Safeguarded Newton
+    double x = T;
+    for (int it = 0; it < 30; ++it)
+    {
+        double fx = F(x);
+        if (!std::isfinite(fx))
+            break;
+
+        if (std::abs(fx) < 1e-8 * std::max(1.0, Et_target))
+            return x;
+
+        // numerical derivative (finite difference)
+        const double dx = std::max(1e-3, 1e-4 * x);
+        double fpx = (F(std::min(Thi, x + dx)) - F(std::max(Tlo, x - dx))) / (2.0 * dx);
+
+        double x_new = x;
+        bool usedNewton = false;
+
+        if (std::isfinite(fpx) && std::abs(fpx) > 0.0)
+        {
+            x_new = x - fx / fpx;
+            usedNewton = true;
+        }
+
+        // If Newton step is bad, or no bracket: use bisection if bracketed
+        if (!usedNewton || !std::isfinite(x_new) || x_new < Tlo || x_new > Thi)
+        {
+            if (bracketed)
+                x_new = 0.5 * (a + b);
+            else
+                x_new = std::min(Thi, std::max(Tlo, x * (fx > 0.0 ? 0.9 : 1.1)));
+        }
+
+        // If we have a bracket, maintain it
+        if (bracketed)
+        {
+            double fnew = F(x_new);
+            if (std::isfinite(fnew))
+            {
+                if (fa * fnew <= 0.0)
+                {
+                    b = x_new;
+                    fb = fnew;
+                }
+                else
+                {
+                    a = x_new;
+                    fa = fnew;
+                }
+            }
+        }
+
+        x = x_new;
+    }
+
+    // fallback
+    return x;
 }

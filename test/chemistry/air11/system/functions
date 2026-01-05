@@ -50,4 +50,16 @@ species
     probeLocations	((0 0 0));
 }
 
+temperatures
+{
+    type	probes;
+    libs	("libsampling.so");
+    writeControl	writeTime;
+    surfaceFormat	raw;
+    interpolationScheme cellPoint;
+    fields	(T Tve);
+    interpolate true;
+    probeLocations	((0 0 0));
+}
+
 // ************************************************************************* //
