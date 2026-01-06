@@ -35,6 +35,8 @@ void Foam::solvers::shockThermo::thermophysicalPredictor()
 {
 
     Info << "    Solving thermophysical equations" << endl;
+    Info << "Combustion model type = " << reaction->type() << nl << endl;
+
     // add support to multi-specie chemistry
     tmp<fv::convectionScheme<scalar>> mvConvection(
         fv::convectionScheme<scalar>::New(

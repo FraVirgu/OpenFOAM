@@ -79,7 +79,7 @@ libs
     "libfluidThermophysicalModels.so"
      "libmutationMixture.so"
     "libhighEnthalpyThermophysicalModels.so"
-
+"libcombustionModels.so"
     // Your Solver
     "libshockThermo.so"
 );
