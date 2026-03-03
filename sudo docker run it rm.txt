@@ -1,0 +1,19 @@
+// just one time in host :
+sudo chmod -R a+rwX ~/Desktop/shareDocker
+
+
+docker run -it --rm \
+  -v ~/Desktop/shareDocker:/home/student/OpenFOAM/student-13/run \
+  --user student \
+  fpisk/cttp
+  
+
+// install nano 
+apt-get update
+apt-get install nano -y
+
+
+// how to print the log error in file 
+wmake >log 2>&1 
+
+

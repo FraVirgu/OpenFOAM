@@ -1,0 +1,142 @@
+==================================================
+   OpenFOAM 13 – Modular Solver Architecture
+==================================================
+
+1. foamRun overview
+-------------------
+foamRun is the *generic driver executable* for all modern OpenFOAM solvers.
+It defines the time-loop structure (predictor–corrector scheme) and
+dynamically loads a solver module specified in system/controlDict:
+
+    solver  shockFluid;
+
+or via command line:
+
+    foamRun -solver shockFluid
+
+foamRun itself contains no PDEs — it provides the framework for running them.
+
+--------------------------------------------------
+Main tasks performed by foamRun:
+1. Reads system/controlDict
+2. Loads the specified solver module library (libshockFluid.so)
+3. Instantiates the solver class (e.g. Foam::solvers::shockFluid)
+4. Enters the PIMPLE-style time loop and calls solver methods in order.
+
+--------------------------------------------------
+Simplified call sequence:
+
+You run:
+   foamRun -solver shockFluid
+        │
+        ▼
+foamRun main()
+   ├─ reads controlDict → solverName = "shockFluid"
+   ├─ solver::load("shockFluid")      ← dynamic linking
+   ├─ solverPtr = solver::New(...)    ← constructs shockFluid object
+   └─ enters time loop:
+          ├─ solver.preSolve()
+          ├─ solver.prePredictor()
+          ├─ solver.momentumTransportPredictor()
+          ├─ solver.thermophysicalTransportPredictor()
+          ├─ solver.momentumTransportCorrector()
+          ├─ solver.thermophysicalTransportCorrector()
+          ├─ solver.postSolve()
+          └─ write results
+
+==================================================
+2. The solver module (e.g. shockFluid)
+==================================================
+
+Folder:
+    applications/modules/shockFluid/
+
+Files:
+    shockFluid.C / shockFluid.H
+    momentumPredictor.C
+    pressureCorrector.C
+    thermophysicalPredictor.C
+    fluxPredictor.C
+    correctDensity.C
+    moveMesh.C
+    setRDeltaT.C
+    Make/
+
+--------------------------------------------------
+Role of the module:
+- Registers itself with OpenFOAM:
+    addToRunTimeSelectionTable(solver, shockFluid, fvMesh);
+- Provides implementations for all virtual methods called by foamRun.
+- Defines what happens in each time step.
+
+Example function meanings:
+  preSolve()                      → update mesh, CFL number
+  prePredictor()                  → compute fluxes, densities
+  momentumTransportPredictor()    → solve momentum PDE
+  thermophysicalTransportPredictor() → solve energy/temperature PDE
+  momentumTransportCorrector()    → apply pressure/continuity correction
+  thermophysicalTransportCorrector() → apply thermal correction
+  postSolve()                     → write output, cleanup
+
+--------------------------------------------------
+Each PDE is assembled using finite-volume operators (fvm::ddt, fvm::div, etc.)
+inside the predictor/corrector source files.
+
+Example (from momentumPredictor.C):
+    fvVectorMatrix UEqn
+    (
+        fvm::ddt(rho, U)
+      + fvm::div(phi, U)
+      - fvm::laplacian(muEff, U)
+    );
+
+==================================================
+3. Where the physics and coefficients come from
+==================================================
+- thermophysicalProperties → defines fluid models and viscosity laws.
+- turbulence models, equations of state, etc. loaded via runtime selection.
+- Each field (p, U, T, rho, phi) read or created by the solver constructor.
+
+--------------------------------------------------
+Key point:
+The PDE coefficients (nu, mu, rho, etc.) are *not hardcoded*.
+They are computed by model classes (psiThermo, momentumTransport, etc.)
+that are instantiated in the solver constructor.
+
+==================================================
+4. Universal structure for all domains
+==================================================
+All solvers (fluid, solid, multiphase, etc.) follow the same call sequence.
+The difference lies in which predictor/corrector methods they implement.
+
+For example:
+
+  - shockFluid → compressible Navier–Stokes (with energy)
+  - incompressibleFluid → incompressible Navier–Stokes
+  - solid → mechanical equilibrium ∇·σ = 0
+  - heatTransfer → ∇·(k∇T) = 0
+
+All share the same foamRun time-loop skeleton.
+
+==================================================
+5. Summary hierarchy
+==================================================
+
+foamRun (driver)
+   ↓
+solver module (e.g. shockFluid)
+   ↓
+  ├─ Builds thermodynamics & transport models
+  ├─ Defines predictor/corrector methods
+   ↓
+finite-volume operators (fvm/fvc)
+   ↓
+OpenFOAM field data (p, U, T, rho, etc.)
+
+--------------------------------------------------
+foamRun  →  framework and time control  
+shockFluid  →  PDE definitions and physics  
+Models  →  compute μ(T), ρ(p,T), Cp(T), etc.
+
+==================================================
+
